@@ -2,6 +2,39 @@
 
 CloudFormation templates for deploying CrowdStrike Falcon Fusion SOAR (Security Orchestration, Automation, and Response) actions to AWS with granular, action-level IAM permissions.
 
+[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://raw.githubusercontent.com/yannhowe/falcon-aws-soar-actions/main/cloudformation-stacksets/templates/crowdstrike-soar-actions-granular.yaml&stackName=CrowdStrike-SOAR-Actions)
+[![Validate Templates](https://github.com/yannhowe/falcon-aws-soar-actions/actions/workflows/validate.yml/badge.svg)](https://github.com/yannhowe/falcon-aws-soar-actions/actions/workflows/validate.yml)
+
+## Architecture
+
+```
+┌──────────────────────┐
+│   CrowdStrike Falcon │
+│   Fusion SOAR        │
+└──────────┬───────────┘
+           │ sts:AssumeRole
+           ▼
+┌──────────────────────┐
+│  Intermediate Role   │   CrowdStrike-managed account
+│  CrowdStrikeCSPM     │   (shared across all customers)
+│  Connector           │
+└──────────┬───────────┘
+           │ sts:AssumeRole + ExternalId
+           ▼
+┌──────────────────────┐
+│  Your SOAR Role      │   Your AWS account(s)
+│  CrowdStrikeFusion   │   Deployed via StackSets
+│  SOARRole            │
+└──────────┬───────────┘
+           │ Per-action IAM policies
+           ▼
+┌──────────────────────────────────────────┐
+│  Your AWS Resources                      │
+│  EC2 · IAM · S3 · Lambda · GuardDuty    │
+│  WAF · SSM · SNS · SQS · EFS · ...      │
+└──────────────────────────────────────────┘
+```
+
 ## What This Does
 
 Deploys IAM roles and policies that enable CrowdStrike to perform automated security response actions in your AWS environment:
@@ -10,49 +43,49 @@ Deploys IAM roles and policies that enable CrowdStrike to perform automated secu
 
 ## Quick Start
 
+### Fastest: Interactive Setup
+
+```bash
+./setup.sh
+```
+
+Prompts for your External ID, account IDs, and region — generates config and deploys in one step.
+
 ### Prerequisites
 
 1. CrowdStrike Falcon subscription with Fusion SOAR capability
 2. External ID from CrowdStrike Falcon console (Store > AWS SOAR Actions > Configure)
-3. AWS account with CloudFormation StackSets enabled
-4. Intermediate Role ARN: `arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector`
+3. Intermediate Role ARN from CrowdStrike setup instructions
+4. AWS account with CloudFormation StackSets enabled
 
-### Option 1: Deploy via AWS Console (GUI)
+### Option 1: One-Click Deploy (AWS Console)
 
-1. **Log into AWS Console** in your management account
-2. Go to **CloudFormation** > **StackSets** > **Create StackSet**
-3. Choose **Service-managed permissions**
-4. Upload template: `cloudformation-stacksets/templates/crowdstrike-soar-actions-granular.yaml`
-5. **Configure Parameters:**
-   - **ExternalId**: Get from CrowdStrike Store > AWS SOAR Actions > Configure
-   - **IntermediateRoleArn**: `arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector`
-   - **SOARRoleName**: `CrowdStrikeFusionSOARRole` (or custom)
-   - Enable/disable specific actions as needed
-6. **Deployment targets:**
-   - Select accounts or entire OUs
-   - Enable automatic deployment for new accounts
-7. **Regions:** Select `us-east-1` (IAM is global)
-8. Click **Submit**
+Click the **Launch Stack** button at the top of this page, then fill in:
+- **ExternalId**: From CrowdStrike Store > AWS SOAR Actions > Configure
+- **IntermediateRoleArn**: From CrowdStrike setup instructions
+- **SOARRoleName**: `CrowdStrikeFusionSOARRole` (or custom)
 
-### Option 2: Deploy via Command Line
+### Option 2: Deploy via Makefile
 
-**Single Account:**
+```bash
+# Deploy to specific accounts
+make deploy-accounts ACCOUNTS=111111111111,222222222222
+
+# Deploy to an Organizational Unit
+make deploy-ou OUS=ou-xxxx-yyyyyyyy
+
+# Use advanced parameters
+make deploy-accounts ACCOUNTS=111111111111 PARAMS=cloudformation-stacksets/examples/parameters-advanced.json
+```
+
+### Option 3: Deploy via Script
+
 ```bash
 cd cloudformation-stacksets/scripts
 ./deploy-stackset.sh -m accounts -p ../examples/parameters-basic.json -a "123456789012"
 ```
 
-**AWS Organization (OU):**
-```bash
-cd cloudformation-stacksets/scripts
-./deploy-stackset.sh -m ou -p ../examples/parameters-basic.json -o "ou-xxxx-yyyyyyyy"
-```
-
-**Multiple Accounts:**
-```bash
-cd cloudformation-stacksets/scripts
-./deploy-stackset.sh -m accounts -p ../examples/parameters-advanced.json -a "111111111111,222222222222"
-```
+See `make help` for all available commands.
 
 ## Complete the Setup in CrowdStrike
 
@@ -124,46 +157,81 @@ Edit these files to:
 
 ## Testing Your Deployment
 
-### Quick Test (2 minutes)
 ```bash
-# Verify role created
-aws iam get-role --role-name CrowdStrikeFusionSOARRole
+# Full test suite
+make test
 
-# List attached policies
-aws iam list-role-policies --role-name CrowdStrikeFusionSOARRole
+# Quick check — role exists and has policies
+make test-quick
+
+# Deployment status across accounts
+make status
 ```
 
-### Automated Testing
-```bash
-# Run comprehensive test suite
-./scripts/test-soar-deployment.sh
+## Troubleshooting
 
-# Or run quick validation only
-./scripts/test-soar-deployment.sh --quick
-```
+### "Access Denied" in Fusion Workflows
 
-### Manual Verification
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Action fails with AccessDenied | Required action not enabled | Enable the action in your parameters file and update the StackSet |
+| Action fails for specific resource | Resource-level policy restriction | Check if a permissions boundary is blocking the action |
+| All actions fail | STS policy not enabled | Ensure `EnableSTS=true` — this is required for all actions |
+
+**How to find the exact denied API call:**
 ```bash
-# Check CloudTrail for role assumptions
 aws cloudtrail lookup-events \
-  --lookup-attributes AttributeKey=ResourceName,AttributeValue=CrowdStrikeFusionSOARRole \
-  --max-items 10
+  --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRole \
+  --max-items 5 --query 'Events[*].CloudTrailEvent' --output text | jq '.errorCode'
 ```
 
-## Common Issues
+### "Invalid External ID"
 
-**"Access Denied" in Fusion workflows**
-- Enable the required action in your parameters file
-- Update the StackSet
-- Check CloudTrail for specific denied API call
+- External ID must match **exactly** between CloudFormation parameters and CrowdStrike Store configuration
+- External ID is **case-sensitive**
+- Copy-paste from the Falcon console to avoid typos
+- If you rotated the External ID in CrowdStrike, update your StackSet parameters and redeploy
 
-**"Invalid External ID"**
-- Verify External ID matches between CloudFormation parameters and CrowdStrike Store
-- External ID is case-sensitive
+### "AssumeRole Failed"
 
-**"AssumeRole Failed"**
-- Verify Intermediate Role ARN is correct: `arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector`
-- For GovCloud, contact CrowdStrike support for GovCloud-specific ARN
+- Verify Intermediate Role ARN matches what CrowdStrike provided
+- Check that the SOAR role's trust policy includes the correct intermediate role ARN
+- For **GovCloud**, contact CrowdStrike support for the GovCloud-specific intermediate role ARN
+- Verify the External ID condition in the trust policy matches
+
+**Debug trust policy:**
+```bash
+aws iam get-role --role-name CrowdStrikeFusionSOARRole \
+  --query 'Role.AssumeRolePolicyDocument' --output json | jq .
+```
+
+### StackSet Deployment Failures
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `OUTDATED` status | Stack instance needs update | Run `make deploy-accounts` to update |
+| Role name conflict | Role already exists in target account | Delete existing role or use a different `SOARRoleName` |
+| Permissions boundary not found | Boundary policy doesn't exist in target account | Create the boundary policy first, or remove the `PermissionsBoundaryArn` parameter |
+| Service limit exceeded | Too many IAM roles (1000 max) | Clean up unused roles in the target account |
+| Trusted access not enabled | StackSets can't deploy to org | Run: `aws organizations enable-aws-service-access --service-principal member.org.stacksets.cloudformation.amazonaws.com` |
+
+### SOAR Workflows Not Triggering
+
+- Verify the role is configured in **CrowdStrike Store** > **AWS SOAR Actions** > **Configure**
+- Check that the **Configuration Name** matches the account where you expect actions to run
+- Ensure the Fusion workflow is **enabled** and has the correct trigger condition
+- Allow up to 15 minutes after initial configuration for the first action to appear in CloudTrail
+
+### Template Validation Errors
+
+```bash
+# Lint templates locally
+make validate
+
+# Or validate against AWS API
+aws cloudformation validate-template \
+  --template-body file://cloudformation-stacksets/templates/crowdstrike-soar-actions-granular.yaml
+```
 
 ## Security
 

@@ -1,0 +1,49 @@
+name: Validate CloudFormation Templates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudformation-stacksets/templates/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cloudformation-stacksets/templates/**'
+
+jobs:
+  cfn-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install cfn-lint
+        run: pip install cfn-lint
+
+      - name: Lint CloudFormation templates
+        run: cfn-lint cloudformation-stacksets/templates/*.yaml
+
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+        continue-on-error: true
+
+      - name: Validate templates with AWS CloudFormation
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: |
+          for template in cloudformation-stacksets/templates/*.yaml; do
+            echo "Validating $template..."
+            aws cloudformation validate-template --template-body file://"$template"
+            echo "✓ $template"
+          done
