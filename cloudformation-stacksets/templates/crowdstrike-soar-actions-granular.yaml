@@ -144,8 +144,7 @@ Parameters:
 
   IntermediateRoleArn:
     Type: String
-    Description: 'CrowdStrike intermediate role ARN'
-    Default: 'arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector'
+    Description: 'CrowdStrike intermediate role ARN (from Falcon console setup instructions)'
     AllowedPattern: '^arn:aws[a-z-]*:iam::\d{12}:role/.+$'
 
   SOARRoleName:
