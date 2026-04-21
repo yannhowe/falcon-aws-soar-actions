@@ -2012,13 +2012,7 @@ Outputs:
       📊 ENABLED ACTIONS SUMMARY:
 
       CDR Automated Response (Enabled by Default):
-      ${EnableCDRUpdateAccessKeyStatus == 'true' ? '✓' : '✗'} Update Access Key Status
-      ${EnableCDRApplyDenyPolicyToUser == 'true' ? '✓' : '✗'} Apply Deny Policy to User
-      ${EnableCDRApplyDenyPolicyToRole == 'true' ? '✓' : '✗'} Apply Deny Policy to Role
-      ${EnableCDRGetInstanceProfileRole == 'true' ? '✓' : '✗'} Get Instance Profile Role
-      ${EnableCDREC2GetInstanceState == 'true' ? '✓' : '✗'} EC2 Get Instance State
-      ${EnableCDREC2StopInstance == 'true' ? '✓' : '✗'} EC2 Stop Instance
-      ${EnableCDREC2FindInstancesByIP == 'true' ? '✓' : '✗'} EC2 Find Instances by IP
+      Review CloudFormation parameters for list of enabled CDR actions.
 
       Store Plugin Actions:
       Review CloudFormation parameters for full list of enabled actions.
