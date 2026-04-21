@@ -1,0 +1,954 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CrowdStrike Falcon Fusion SOAR Actions IAM Role - Deploy via StackSets for multi-account support'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: 'CrowdStrike Configuration'
+        Parameters:
+          - ExternalId
+          - IntermediateRoleArn
+          - SOARRoleName
+      - Label:
+          default: 'SOAR Actions - Core Services (Enabled by Default)'
+        Parameters:
+          - EnableEC2
+          - EnableGuardDuty
+          - EnableIAM
+          - EnableS3
+          - EnableSTS
+      - Label:
+          default: 'SOAR Actions - Security Services'
+        Parameters:
+          - EnableSecretsManager
+          - EnableSSM
+          - EnableWAF
+          - EnableConfig
+          - EnableAccessAnalyzer
+          - EnableSecurityLake
+      - Label:
+          default: 'SOAR Actions - Compute & Storage'
+        Parameters:
+          - EnableLambda
+          - EnableDynamoDB
+          - EnableEFS
+      - Label:
+          default: 'SOAR Actions - Networking'
+        Parameters:
+          - EnableNetworkFirewall
+          - EnableFirewallManager
+      - Label:
+          default: 'SOAR Actions - Integration Services'
+        Parameters:
+          - EnableSNS
+          - EnableSQS
+          - EnableCloudWatchLogs
+          - EnableAthena
+      - Label:
+          default: 'SOAR Actions - Identity & Management'
+        Parameters:
+          - EnableCognito
+          - EnableIAMIdentityCenter
+          - EnableOrganizations
+      - Label:
+          default: 'SOAR Actions - Certificates & Other'
+        Parameters:
+          - EnableCertificateManager
+      - Label:
+          default: 'Advanced Configuration'
+        Parameters:
+          - PermissionsBoundaryArn
+    ParameterLabels:
+      ExternalId:
+        default: 'External ID'
+      IntermediateRoleArn:
+        default: 'CrowdStrike Intermediate Role ARN'
+      SOARRoleName:
+        default: 'SOAR IAM Role Name'
+
+Parameters:
+  ExternalId:
+    Type: String
+    Description: 'External ID for role assumption (obtain from CrowdStrike Falcon console)'
+    MinLength: 1
+    NoEcho: true
+
+  IntermediateRoleArn:
+    Type: String
+    Description: 'CrowdStrike intermediate role ARN'
+    Default: 'arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector'
+    AllowedPattern: '^arn:aws[a-z-]*:iam::\d{12}:role/.+$'
+
+  SOARRoleName:
+    Type: String
+    Description: 'Name of the IAM role for Falcon Fusion SOAR actions'
+    Default: 'CrowdStrikeFusionSOARRole'
+    AllowedPattern: '^[a-zA-Z0-9+=,.@_-]{1,64}$'
+
+  PermissionsBoundaryArn:
+    Type: String
+    Description: 'Optional: ARN of IAM permissions boundary policy'
+    Default: ''
+    AllowedPattern: '^(arn:aws[a-z-]*:iam::\d{12}:policy/.+)?$'
+
+  # Core Services (Enabled by Default)
+  EnableEC2:
+    Type: String
+    Description: 'Enable EC2 instance and security group management'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableGuardDuty:
+    Type: String
+    Description: 'Enable GuardDuty findings management'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableIAM:
+    Type: String
+    Description: 'Enable IAM user and role management'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableS3:
+    Type: String
+    Description: 'Enable S3 bucket policy and object management'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableSTS:
+    Type: String
+    Description: 'Enable STS for role assumption (required for all actions)'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  # Security Services
+  EnableSecretsManager:
+    Type: String
+    Description: 'Enable Secrets Manager for secret rotation'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableSSM:
+    Type: String
+    Description: 'Enable Systems Manager for command execution'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableWAF:
+    Type: String
+    Description: 'Enable WAF rule and IP set management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableConfig:
+    Type: String
+    Description: 'Enable AWS Config for compliance evaluation'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableAccessAnalyzer:
+    Type: String
+    Description: 'Enable IAM Access Analyzer findings'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableSecurityLake:
+    Type: String
+    Description: 'Enable Security Lake queries'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # Compute & Storage
+  EnableLambda:
+    Type: String
+    Description: 'Enable Lambda function management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableDynamoDB:
+    Type: String
+    Description: 'Enable DynamoDB table operations'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableEFS:
+    Type: String
+    Description: 'Enable EFS file system management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # Networking
+  EnableNetworkFirewall:
+    Type: String
+    Description: 'Enable Network Firewall management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableFirewallManager:
+    Type: String
+    Description: 'Enable Firewall Manager policies'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # Integration Services
+  EnableSNS:
+    Type: String
+    Description: 'Enable SNS topic management and publishing'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableSQS:
+    Type: String
+    Description: 'Enable SQS queue management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableCloudWatchLogs:
+    Type: String
+    Description: 'Enable CloudWatch Logs querying'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableAthena:
+    Type: String
+    Description: 'Enable Athena query execution'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # Identity & Management
+  EnableCognito:
+    Type: String
+    Description: 'Enable Cognito user pool management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMIdentityCenter:
+    Type: String
+    Description: 'Enable IAM Identity Center (SSO) management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableOrganizations:
+    Type: String
+    Description: 'Enable AWS Organizations information'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # Certificates & Other
+  EnableCertificateManager:
+    Type: String
+    Description: 'Enable Certificate Manager operations'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+Conditions:
+  HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundaryArn, '']]
+  EnableEC2Policy: !Equals [!Ref EnableEC2, 'true']
+  EnableGuardDutyPolicy: !Equals [!Ref EnableGuardDuty, 'true']
+  EnableIAMPolicy: !Equals [!Ref EnableIAM, 'true']
+  EnableS3Policy: !Equals [!Ref EnableS3, 'true']
+  EnableSTSPolicy: !Equals [!Ref EnableSTS, 'true']
+  EnableSecretsManagerPolicy: !Equals [!Ref EnableSecretsManager, 'true']
+  EnableSSMPolicy: !Equals [!Ref EnableSSM, 'true']
+  EnableWAFPolicy: !Equals [!Ref EnableWAF, 'true']
+  EnableConfigPolicy: !Equals [!Ref EnableConfig, 'true']
+  EnableAccessAnalyzerPolicy: !Equals [!Ref EnableAccessAnalyzer, 'true']
+  EnableSecurityLakePolicy: !Equals [!Ref EnableSecurityLake, 'true']
+  EnableLambdaPolicy: !Equals [!Ref EnableLambda, 'true']
+  EnableDynamoDBPolicy: !Equals [!Ref EnableDynamoDB, 'true']
+  EnableEFSPolicy: !Equals [!Ref EnableEFS, 'true']
+  EnableNetworkFirewallPolicy: !Equals [!Ref EnableNetworkFirewall, 'true']
+  EnableFirewallManagerPolicy: !Equals [!Ref EnableFirewallManager, 'true']
+  EnableSNSPolicy: !Equals [!Ref EnableSNS, 'true']
+  EnableSQSPolicy: !Equals [!Ref EnableSQS, 'true']
+  EnableCloudWatchLogsPolicy: !Equals [!Ref EnableCloudWatchLogs, 'true']
+  EnableAthenaPolicy: !Equals [!Ref EnableAthena, 'true']
+  EnableCognitoPolicy: !Equals [!Ref EnableCognito, 'true']
+  EnableIAMIdentityCenterPolicy: !Equals [!Ref EnableIAMIdentityCenter, 'true']
+  EnableOrganizationsPolicy: !Equals [!Ref EnableOrganizations, 'true']
+  EnableCertificateManagerPolicy: !Equals [!Ref EnableCertificateManager, 'true']
+
+Resources:
+  CrowdStrikeSOARRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref SOARRoleName
+      Description: 'IAM role for CrowdStrike Falcon Fusion SOAR actions'
+      MaxSessionDuration: 43200
+      PermissionsBoundary: !If [HasPermissionsBoundary, !Ref PermissionsBoundaryArn, !Ref 'AWS::NoValue']
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref IntermediateRoleArn
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref ExternalId
+      Tags:
+        - Key: CrowdStrikeManaged
+          Value: 'true'
+        - Key: Purpose
+          Value: 'Fusion SOAR Actions'
+        - Key: ManagedBy
+          Value: 'CloudFormation'
+
+  # EC2 Policy
+  EC2Policy:
+    Type: AWS::IAM::Policy
+    Condition: EnableEC2Policy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-ec2
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EC2InstanceManagement
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeInstances'
+              - 'ec2:DescribeInstanceStatus'
+              - 'ec2:DescribeInstanceAttribute'
+              - 'ec2:StartInstances'
+              - 'ec2:StopInstances'
+              - 'ec2:RebootInstances'
+              - 'ec2:TerminateInstances'
+              - 'ec2:ModifyInstanceAttribute'
+            Resource: '*'
+          - Sid: EC2SecurityGroupManagement
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeSecurityGroups'
+              - 'ec2:DescribeSecurityGroupRules'
+              - 'ec2:CreateSecurityGroup'
+              - 'ec2:AuthorizeSecurityGroupIngress'
+              - 'ec2:AuthorizeSecurityGroupEgress'
+              - 'ec2:RevokeSecurityGroupIngress'
+              - 'ec2:RevokeSecurityGroupEgress'
+              - 'ec2:ModifySecurityGroupRules'
+            Resource: '*'
+          - Sid: EC2NetworkInterfaceManagement
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeNetworkInterfaces'
+              - 'ec2:ModifyNetworkInterfaceAttribute'
+            Resource: '*'
+          - Sid: EC2VolumeManagement
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeVolumes'
+              - 'ec2:CreateSnapshot'
+              - 'ec2:DescribeSnapshots'
+            Resource: '*'
+
+  # GuardDuty Policy
+  GuardDutyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableGuardDutyPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-guardduty
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GuardDutyManagement
+            Effect: Allow
+            Action:
+              - 'guardduty:GetDetector'
+              - 'guardduty:ListDetectors'
+              - 'guardduty:GetFindings'
+              - 'guardduty:ListFindings'
+              - 'guardduty:UpdateFindings'
+              - 'guardduty:ArchiveFindings'
+              - 'guardduty:UnarchiveFindings'
+              - 'guardduty:CreateThreatIntelSet'
+              - 'guardduty:UpdateThreatIntelSet'
+              - 'guardduty:GetThreatIntelSet'
+              - 'guardduty:ListThreatIntelSets'
+            Resource: '*'
+
+  # IAM Policy
+  IAMPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-iam
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: IAMUserManagement
+            Effect: Allow
+            Action:
+              - 'iam:GetUser'
+              - 'iam:ListUsers'
+              - 'iam:ListAccessKeys'
+              - 'iam:DeleteAccessKey'
+              - 'iam:UpdateAccessKey'
+              - 'iam:CreateAccessKey'
+              - 'iam:GetAccessKeyLastUsed'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+          - Sid: IAMRoleManagement
+            Effect: Allow
+            Action:
+              - 'iam:GetRole'
+              - 'iam:ListRoles'
+              - 'iam:UpdateAssumeRolePolicy'
+              - 'iam:GetRolePolicy'
+              - 'iam:ListRolePolicies'
+              - 'iam:ListAttachedRolePolicies'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+          - Sid: IAMPolicyManagement
+            Effect: Allow
+            Action:
+              - 'iam:GetPolicy'
+              - 'iam:GetPolicyVersion'
+              - 'iam:ListPolicies'
+            Resource: '*'
+
+  # S3 Policy
+  S3Policy:
+    Type: AWS::IAM::Policy
+    Condition: EnableS3Policy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-s3
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: S3BucketManagement
+            Effect: Allow
+            Action:
+              - 's3:ListBucket'
+              - 's3:GetBucketLocation'
+              - 's3:GetBucketPolicy'
+              - 's3:PutBucketPolicy'
+              - 's3:GetBucketPublicAccessBlock'
+              - 's3:PutBucketPublicAccessBlock'
+              - 's3:GetBucketVersioning'
+              - 's3:PutBucketVersioning'
+              - 's3:GetBucketAcl'
+              - 's3:PutBucketAcl'
+              - 's3:GetBucketLogging'
+              - 's3:PutBucketLogging'
+            Resource: !Sub 'arn:${AWS::Partition}:s3:::*'
+          - Sid: S3ObjectManagement
+            Effect: Allow
+            Action:
+              - 's3:GetObject'
+              - 's3:GetObjectVersion'
+              - 's3:GetObjectAcl'
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+              - 's3:DeleteObject'
+              - 's3:DeleteObjectVersion'
+              - 's3:RestoreObject'
+            Resource: !Sub 'arn:${AWS::Partition}:s3:::*/*'
+
+  # STS Policy (Required)
+  STSPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableSTSPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-sts
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AssumeRole
+            Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+              - 'sts:GetCallerIdentity'
+            Resource: '*'
+
+  # Lambda Policy
+  LambdaPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableLambdaPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-lambda
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: LambdaManagement
+            Effect: Allow
+            Action:
+              - 'lambda:GetFunction'
+              - 'lambda:GetFunctionConfiguration'
+              - 'lambda:ListFunctions'
+              - 'lambda:UpdateFunctionConfiguration'
+              - 'lambda:PutFunctionConcurrency'
+              - 'lambda:DeleteFunctionConcurrency'
+              - 'lambda:GetPolicy'
+              - 'lambda:InvokeFunction'
+            Resource: !Sub 'arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:*'
+
+  # Secrets Manager Policy
+  SecretsManagerPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableSecretsManagerPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-secretsmanager
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SecretsManagerManagement
+            Effect: Allow
+            Action:
+              - 'secretsmanager:GetSecretValue'
+              - 'secretsmanager:DescribeSecret'
+              - 'secretsmanager:ListSecrets'
+              - 'secretsmanager:RotateSecret'
+              - 'secretsmanager:UpdateSecret'
+              - 'secretsmanager:PutSecretValue'
+              - 'secretsmanager:DeleteSecret'
+            Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:*'
+
+  # SSM Policy
+  SSMPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableSSMPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-ssm
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SSMCommandManagement
+            Effect: Allow
+            Action:
+              - 'ssm:SendCommand'
+              - 'ssm:GetCommandInvocation'
+              - 'ssm:ListCommands'
+              - 'ssm:DescribeInstanceInformation'
+              - 'ssm:GetParameter'
+              - 'ssm:GetParameters'
+              - 'ssm:PutParameter'
+              - 'ssm:DeleteParameter'
+            Resource: '*'
+
+  # WAF Policy
+  WAFPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableWAFPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-waf
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: WAFv2Management
+            Effect: Allow
+            Action:
+              - 'wafv2:GetWebACL'
+              - 'wafv2:ListWebACLs'
+              - 'wafv2:GetIPSet'
+              - 'wafv2:ListIPSets'
+              - 'wafv2:UpdateIPSet'
+              - 'wafv2:GetRuleGroup'
+              - 'wafv2:ListRuleGroups'
+              - 'wafv2:UpdateWebACL'
+            Resource: '*'
+          - Sid: WAFClassicManagement
+            Effect: Allow
+            Action:
+              - 'waf:GetIPSet'
+              - 'waf:ListIPSets'
+              - 'waf:UpdateIPSet'
+              - 'waf:GetWebACL'
+              - 'waf:ListWebACLs'
+            Resource: '*'
+
+  # CloudWatch Logs Policy
+  CloudWatchLogsPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCloudWatchLogsPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-cloudwatchlogs
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CloudWatchLogsManagement
+            Effect: Allow
+            Action:
+              - 'logs:DescribeLogGroups'
+              - 'logs:DescribeLogStreams'
+              - 'logs:GetLogEvents'
+              - 'logs:FilterLogEvents'
+              - 'logs:StartQuery'
+              - 'logs:StopQuery'
+              - 'logs:GetQueryResults'
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Resource: '*'
+
+  # Config Policy
+  ConfigPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableConfigPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-config
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ConfigManagement
+            Effect: Allow
+            Action:
+              - 'config:DescribeConfigRules'
+              - 'config:GetComplianceDetailsByConfigRule'
+              - 'config:GetComplianceDetailsByResource'
+              - 'config:DescribeComplianceByConfigRule'
+              - 'config:DescribeComplianceByResource'
+              - 'config:PutEvaluations'
+            Resource: '*'
+
+  # SNS Policy
+  SNSPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableSNSPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-sns
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SNSManagement
+            Effect: Allow
+            Action:
+              - 'sns:ListTopics'
+              - 'sns:GetTopicAttributes'
+              - 'sns:SetTopicAttributes'
+              - 'sns:Publish'
+              - 'sns:Subscribe'
+              - 'sns:Unsubscribe'
+              - 'sns:ListSubscriptionsByTopic'
+            Resource: !Sub 'arn:${AWS::Partition}:sns:*:${AWS::AccountId}:*'
+
+  # SQS Policy
+  SQSPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableSQSPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-sqs
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SQSManagement
+            Effect: Allow
+            Action:
+              - 'sqs:ListQueues'
+              - 'sqs:GetQueueAttributes'
+              - 'sqs:SetQueueAttributes'
+              - 'sqs:SendMessage'
+              - 'sqs:ReceiveMessage'
+              - 'sqs:DeleteMessage'
+              - 'sqs:PurgeQueue'
+            Resource: !Sub 'arn:${AWS::Partition}:sqs:*:${AWS::AccountId}:*'
+
+  # DynamoDB Policy
+  DynamoDBPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableDynamoDBPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-dynamodb
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DynamoDBManagement
+            Effect: Allow
+            Action:
+              - 'dynamodb:ListTables'
+              - 'dynamodb:DescribeTable'
+              - 'dynamodb:GetItem'
+              - 'dynamodb:PutItem'
+              - 'dynamodb:UpdateItem'
+              - 'dynamodb:DeleteItem'
+              - 'dynamodb:Query'
+              - 'dynamodb:Scan'
+            Resource: !Sub 'arn:${AWS::Partition}:dynamodb:*:${AWS::AccountId}:table/*'
+
+  # Access Analyzer Policy
+  AccessAnalyzerPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableAccessAnalyzerPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-accessanalyzer
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccessAnalyzerManagement
+            Effect: Allow
+            Action:
+              - 'access-analyzer:ListAnalyzers'
+              - 'access-analyzer:GetAnalyzer'
+              - 'access-analyzer:ListFindings'
+              - 'access-analyzer:GetFinding'
+              - 'access-analyzer:UpdateFindings'
+              - 'access-analyzer:StartResourceScan'
+            Resource: '*'
+
+  # Athena Policy
+  AthenaPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableAthenaPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-athena
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AthenaQueryManagement
+            Effect: Allow
+            Action:
+              - 'athena:StartQueryExecution'
+              - 'athena:GetQueryExecution'
+              - 'athena:GetQueryResults'
+              - 'athena:StopQueryExecution'
+              - 'athena:ListQueryExecutions'
+            Resource: '*'
+          - Sid: GlueAccess
+            Effect: Allow
+            Action:
+              - 'glue:GetDatabase'
+              - 'glue:GetTable'
+            Resource: '*'
+
+  # Certificate Manager Policy
+  CertificateManagerPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCertificateManagerPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-certificatemanager
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ACMManagement
+            Effect: Allow
+            Action:
+              - 'acm:ListCertificates'
+              - 'acm:DescribeCertificate'
+              - 'acm:GetCertificate'
+              - 'acm:DeleteCertificate'
+              - 'acm:RenewCertificate'
+            Resource: '*'
+
+  # Cognito Policy
+  CognitoPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCognitoPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-cognito
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CognitoUserPoolManagement
+            Effect: Allow
+            Action:
+              - 'cognito-idp:ListUserPools'
+              - 'cognito-idp:DescribeUserPool'
+              - 'cognito-idp:AdminGetUser'
+              - 'cognito-idp:AdminDisableUser'
+              - 'cognito-idp:AdminEnableUser'
+              - 'cognito-idp:AdminDeleteUser'
+              - 'cognito-idp:ListUsers'
+            Resource: '*'
+
+  # EFS Policy
+  EFSPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableEFSPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-efs
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EFSManagement
+            Effect: Allow
+            Action:
+              - 'elasticfilesystem:DescribeFileSystems'
+              - 'elasticfilesystem:DescribeMountTargets'
+              - 'elasticfilesystem:DescribeAccessPoints'
+              - 'elasticfilesystem:UpdateFileSystem'
+              - 'elasticfilesystem:PutLifecycleConfiguration'
+            Resource: '*'
+
+  # Firewall Manager Policy
+  FirewallManagerPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableFirewallManagerPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-firewallmanager
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: FMSManagement
+            Effect: Allow
+            Action:
+              - 'fms:GetPolicy'
+              - 'fms:ListPolicies'
+              - 'fms:GetComplianceDetail'
+              - 'fms:ListComplianceStatus'
+              - 'fms:PutPolicy'
+            Resource: '*'
+
+  # IAM Identity Center Policy
+  IAMIdentityCenterPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMIdentityCenterPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-iamidentitycenter
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: IdentityCenterManagement
+            Effect: Allow
+            Action:
+              - 'sso:ListInstances'
+              - 'sso:DescribePermissionSet'
+              - 'sso:ListPermissionSets'
+              - 'identitystore:ListUsers'
+              - 'identitystore:DescribeUser'
+              - 'identitystore:ListGroups'
+              - 'identitystore:DescribeGroup'
+            Resource: '*'
+
+  # Network Firewall Policy
+  NetworkFirewallPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableNetworkFirewallPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-networkfirewall
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: NetworkFirewallManagement
+            Effect: Allow
+            Action:
+              - 'network-firewall:DescribeFirewall'
+              - 'network-firewall:DescribeFirewallPolicy'
+              - 'network-firewall:DescribeRuleGroup'
+              - 'network-firewall:ListFirewalls'
+              - 'network-firewall:ListFirewallPolicies'
+              - 'network-firewall:UpdateFirewallPolicy'
+            Resource: '*'
+
+  # Organizations Policy
+  OrganizationsPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableOrganizationsPolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-organizations
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: OrganizationsManagement
+            Effect: Allow
+            Action:
+              - 'organizations:DescribeOrganization'
+              - 'organizations:ListAccounts'
+              - 'organizations:DescribeAccount'
+              - 'organizations:ListOrganizationalUnitsForParent'
+              - 'organizations:ListRoots'
+            Resource: '*'
+
+  # Security Lake Policy
+  SecurityLakePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableSecurityLakePolicy
+    Properties:
+      PolicyName: CrowdStrikeSOAR-securitylake
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SecurityLakeManagement
+            Effect: Allow
+            Action:
+              - 'securitylake:GetDataLakeOrganizationConfiguration'
+              - 'securitylake:GetDataLakeSources'
+              - 'securitylake:ListDataLakes'
+              - 'securitylake:ListLogSources'
+            Resource: '*'
+
+Outputs:
+  RoleArn:
+    Description: 'ARN of the CrowdStrike SOAR IAM role'
+    Value: !GetAtt CrowdStrikeSOARRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleArn'
+
+  RoleName:
+    Description: 'Name of the CrowdStrike SOAR IAM role'
+    Value: !Ref CrowdStrikeSOARRole
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleName'
+
+  AccountId:
+    Description: 'AWS Account ID where the role was created'
+    Value: !Ref AWS::AccountId
+
+  ConfigurationInstructions:
+    Description: 'Instructions for completing setup in CrowdStrike Store'
+    Value: !Sub |
+      ========================================
+      AWS SOAR Actions Configuration Required
+      ========================================
+
+      The IAM role has been created in account ${AWS::AccountId}.
+      Complete the setup by configuring the CrowdStrike Store:
+
+      1. Log in to the Falcon console
+      2. Go to CrowdStrike Store > All apps
+      3. Search for "AWS SOAR Actions"
+      4. Click "Configure"
+      5. Click "Add configuration"
+      6. Enter these values:
+         Configuration Name: ${AWS::AccountId}-soar
+         Role ARN: ${CrowdStrikeSOARRole.Arn}
+         External ID: (use the value you provided during stack creation)
+      7. Click "Save configuration"
+
+      The SOAR actions are now ready to use in Fusion workflows.

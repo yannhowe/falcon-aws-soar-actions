@@ -1,0 +1,2117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CrowdStrike SOAR Actions - Granular action-level permissions'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: 'CrowdStrike Configuration'
+        Parameters:
+          - ExternalId
+          - IntermediateRoleArn
+          - SOARRoleName
+          - PermissionsBoundaryArn
+
+      - Label:
+          default: 'CDR Automated Response - IAM Actions'
+        Parameters:
+          - EnableCDRUpdateAccessKeyStatus
+          - EnableCDRApplyDenyPolicyToUser
+          - EnableCDRApplyDenyPolicyToRole
+          - EnableCDRGetInstanceProfileRole
+          - EnableCDRIAMRoleValidator
+          - EnableCDRIAMExtractInstanceID
+
+      - Label:
+          default: 'Store Plugin - IAM User Lifecycle Management'
+        Parameters:
+          - EnableIAMGetUser
+          - EnableIAMListUsers
+          - EnableIAMCreateUser
+          - EnableIAMDeleteUser
+          - EnableIAMUpdateUser
+          - EnableIAMCreateGroup
+          - EnableIAMDeleteGroup
+          - EnableIAMAddUserToGroup
+          - EnableIAMRemoveUserFromGroup
+
+      - Label:
+          default: 'Store Plugin - IAM Access Key & Credential Rotation'
+        Parameters:
+          - EnableIAMListAccessKeys
+          - EnableIAMCreateAccessKey
+          - EnableIAMDeleteAccessKey
+          - EnableIAMUpdateAccessKey
+          - EnableIAMGetAccessKeyLastUsed
+          - EnableIAMMFAManagement
+          - EnableIAMSSHKeyManagement
+          - EnableIAMServiceCredentialManagement
+
+      - Label:
+          default: 'Store Plugin - IAM Policy & Permission Administration'
+        Parameters:
+          - EnableIAMGetPolicy
+          - EnableIAMListPolicies
+          - EnableIAMCreatePolicy
+          - EnableIAMDeletePolicy
+          - EnableIAMAttachUserPolicy
+          - EnableIAMDetachUserPolicy
+          - EnableIAMPutUserPolicy
+          - EnableIAMDeleteUserPolicy
+          - EnableIAMPermissionBoundary
+
+      - Label:
+          default: 'Store Plugin - IAM Role & Instance Profile Management'
+        Parameters:
+          - EnableIAMGetRole
+          - EnableIAMListRoles
+          - EnableIAMCreateRole
+          - EnableIAMDeleteRole
+          - EnableIAMUpdateAssumeRolePolicy
+          - EnableIAMAttachRolePolicy
+          - EnableIAMDetachRolePolicy
+          - EnableIAMPutRolePolicy
+          - EnableIAMDeleteRolePolicy
+          - EnableIAMInstanceProfileManagement
+
+      - Label:
+          default: 'Store Plugin - IAM Security Audit & Compliance'
+        Parameters:
+          - EnableIAMGetAccountSummary
+          - EnableIAMGetAccountPasswordPolicy
+          - EnableIAMCredentialReport
+          - EnableIAMServiceLastAccessed
+
+      - Label:
+          default: 'Store Plugin - IAM Federated Identity'
+        Parameters:
+          - EnableIAMSAMLProvider
+          - EnableIAMOIDCProvider
+
+      - Label:
+          default: 'Store Plugin - IAM Password & Authentication'
+        Parameters:
+          - EnableIAMLoginProfile
+          - EnableIAMPasswordPolicy
+
+      - Label:
+          default: 'CDR Automated Response - EC2 Actions'
+        Parameters:
+          - EnableCDREC2GetInstanceState
+          - EnableCDREC2StopInstance
+          - EnableCDREC2FindInstancesByIP
+          - EnableCDREC2DeleteNATGateway
+          - EnableCDREC2FindNATGatewaysByIP
+          - EnableCDREC2MakeSnapshotPrivate
+          - EnableCDREC2ModifySecurityGroupIngress
+
+      - Label:
+          default: 'CDR Automated Response - SSM Actions'
+        Parameters:
+          - EnableCDRSSMInstallFalconAgent
+          - EnableCDRSSMGetTaskStatus
+
+      - Label:
+          default: 'CDR Automated Response - Lambda Actions'
+        Parameters:
+          - EnableCDRLambdaPutFunctionConcurrency
+
+      - Label:
+          default: 'CDR Automated Response - S3 Actions'
+        Parameters:
+          - EnableCDRS3DeleteBucketReplication
+          - EnableCDRS3PutPublicAccessBlock
+
+      - Label:
+          default: 'CDR Automated Response - EFS Actions'
+        Parameters:
+          - EnableCDREFSRemovePublicAccess
+
+      - Label:
+          default: 'Store Plugin - EC2 Actions'
+        Parameters:
+          - EnableEC2InstanceManagement
+          - EnableEC2SecurityGroupManagement
+          - EnableEC2NetworkInterfaceManagement
+          - EnableEC2VolumeManagement
+
+Parameters:
+  ExternalId:
+    Type: String
+    Description: 'External ID for role assumption (obtained from CrowdStrike Falcon console)'
+    MinLength: 1
+    NoEcho: true
+
+  IntermediateRoleArn:
+    Type: String
+    Description: 'CrowdStrike intermediate role ARN'
+    Default: 'arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector'
+    AllowedPattern: '^arn:aws[a-z-]*:iam::\d{12}:role/.+$'
+
+  SOARRoleName:
+    Type: String
+    Description: 'Name of the IAM role for SOAR actions'
+    Default: 'CrowdStrikeFusionSOARRole'
+    AllowedPattern: '^[a-zA-Z0-9+=,.@_-]{1,64}$'
+
+  PermissionsBoundaryArn:
+    Type: String
+    Description: 'Optional: ARN of IAM permissions boundary policy'
+    Default: ''
+    AllowedPattern: '^(arn:aws[a-z-]*:iam::\d{12}:policy/.+)?$'
+
+  # ==========================================
+  # CDR Automated Response - IAM Actions
+  # ==========================================
+
+  EnableCDRUpdateAccessKeyStatus:
+    Type: String
+    Description: 'CDR Action: Update Access Key Status (Disable compromised keys)'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDRApplyDenyPolicyToUser:
+    Type: String
+    Description: 'CDR Action: Apply Deny Policy to User (Contain compromised user)'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDRApplyDenyPolicyToRole:
+    Type: String
+    Description: 'CDR Action: Apply Deny Policy to Role (Contain compromised EC2 instance)'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDRGetInstanceProfileRole:
+    Type: String
+    Description: 'CDR Action: Get Instance Profile Role (Investigate EC2 role)'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDRIAMRoleValidator:
+    Type: String
+    Description: 'Enable CDR IAM Role Validator action (validates if IAM role is approved or AWS service role)'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDRIAMExtractInstanceID:
+    Type: String
+    Description: 'Enable CDR IAM Extract Instance ID action (extracts EC2 instance ID from CloudTrail principal)'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # Store Plugin - User Lifecycle
+  # ==========================================
+
+  EnableIAMGetUser:
+    Type: String
+    Description: 'Get IAM user details for investigation'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMListUsers:
+    Type: String
+    Description: 'List all IAM users'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMCreateUser:
+    Type: String
+    Description: 'Create new IAM users'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDeleteUser:
+    Type: String
+    Description: 'Delete IAM users'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMUpdateUser:
+    Type: String
+    Description: 'Update IAM user properties'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMCreateGroup:
+    Type: String
+    Description: 'Create IAM groups'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDeleteGroup:
+    Type: String
+    Description: 'Delete IAM groups'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMAddUserToGroup:
+    Type: String
+    Description: 'Add users to IAM groups'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMRemoveUserFromGroup:
+    Type: String
+    Description: 'Remove users from IAM groups'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # Store Plugin - Access Keys
+  # ==========================================
+
+  EnableIAMListAccessKeys:
+    Type: String
+    Description: 'List user access keys'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMCreateAccessKey:
+    Type: String
+    Description: 'Create new access keys'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDeleteAccessKey:
+    Type: String
+    Description: 'Delete access keys'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMUpdateAccessKey:
+    Type: String
+    Description: 'Update access key status (Active/Inactive)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMGetAccessKeyLastUsed:
+    Type: String
+    Description: 'Get access key last used information'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMMFAManagement:
+    Type: String
+    Description: 'Enable MFA device management (create, enable, deactivate, delete)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMSSHKeyManagement:
+    Type: String
+    Description: 'Enable SSH public key management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMServiceCredentialManagement:
+    Type: String
+    Description: 'Enable service-specific credential management'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # Store Plugin - Policy Management
+  # ==========================================
+
+  EnableIAMGetPolicy:
+    Type: String
+    Description: 'Get policy details'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMListPolicies:
+    Type: String
+    Description: 'List IAM policies'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMCreatePolicy:
+    Type: String
+    Description: 'Create IAM policies'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDeletePolicy:
+    Type: String
+    Description: 'Delete IAM policies'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMAttachUserPolicy:
+    Type: String
+    Description: 'Attach managed policies to users'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDetachUserPolicy:
+    Type: String
+    Description: 'Detach managed policies from users'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMPutUserPolicy:
+    Type: String
+    Description: 'Create/update inline policies on users'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDeleteUserPolicy:
+    Type: String
+    Description: 'Delete inline policies from users'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMPermissionBoundary:
+    Type: String
+    Description: 'Manage IAM permission boundaries'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # Store Plugin - Role Management
+  # ==========================================
+
+  EnableIAMGetRole:
+    Type: String
+    Description: 'Get role details'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMListRoles:
+    Type: String
+    Description: 'List IAM roles'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMCreateRole:
+    Type: String
+    Description: 'Create IAM roles'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDeleteRole:
+    Type: String
+    Description: 'Delete IAM roles'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMUpdateAssumeRolePolicy:
+    Type: String
+    Description: 'Update role trust policies'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMAttachRolePolicy:
+    Type: String
+    Description: 'Attach managed policies to roles'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDetachRolePolicy:
+    Type: String
+    Description: 'Detach managed policies from roles'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMPutRolePolicy:
+    Type: String
+    Description: 'Create/update inline policies on roles'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMDeleteRolePolicy:
+    Type: String
+    Description: 'Delete inline policies from roles'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMInstanceProfileManagement:
+    Type: String
+    Description: 'Manage EC2 instance profiles (get, create, delete, add/remove roles)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # Store Plugin - Security Audit
+  # ==========================================
+
+  EnableIAMGetAccountSummary:
+    Type: String
+    Description: 'Get account summary for compliance reporting'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMGetAccountPasswordPolicy:
+    Type: String
+    Description: 'Get account password policy'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMCredentialReport:
+    Type: String
+    Description: 'Generate and retrieve credential reports'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMServiceLastAccessed:
+    Type: String
+    Description: 'Get service last accessed details for audit'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # Store Plugin - Federated Identity
+  # ==========================================
+
+  EnableIAMSAMLProvider:
+    Type: String
+    Description: 'Manage SAML identity providers (create, update, delete, list, get)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMOIDCProvider:
+    Type: String
+    Description: 'Manage OpenID Connect providers (create, update, delete, list, get)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # Store Plugin - Password & Authentication
+  # ==========================================
+
+  EnableIAMLoginProfile:
+    Type: String
+    Description: 'Manage console login profiles (create, update, delete, get)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableIAMPasswordPolicy:
+    Type: String
+    Description: 'Update/delete account password policies'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # CDR Automated Response - EC2 Actions
+  # ==========================================
+
+  EnableCDREC2GetInstanceState:
+    Type: String
+    Description: 'CDR Action: Get EC2 Instance State'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDREC2StopInstance:
+    Type: String
+    Description: 'CDR Action: Stop EC2 Instance (Contain compromised instance)'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDREC2FindInstancesByIP:
+    Type: String
+    Description: 'CDR Action: Find EC2 Instances by IP Address'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDREC2DeleteNATGateway:
+    Type: String
+    Description: 'CDR Action: Delete NAT Gateway (Cut off internet access)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableCDREC2FindNATGatewaysByIP:
+    Type: String
+    Description: 'Enable CDR EC2 Find NAT Gateways by IP action'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDREC2MakeSnapshotPrivate:
+    Type: String
+    Description: 'CDR Action: Make Snapshot Private (Prevent data exfiltration)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableCDREC2ModifySecurityGroupIngress:
+    Type: String
+    Description: 'CDR Action: Modify Security Group Ingress (Block malicious IPs)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # CDR Automated Response - SSM Actions
+  # ==========================================
+
+  EnableCDRSSMInstallFalconAgent:
+    Type: String
+    Description: 'Enable CDR SSM Install Falcon Agent action'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDRSSMGetTaskStatus:
+    Type: String
+    Description: 'Enable CDR SSM Get Task Status action'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # CDR Automated Response - Lambda Actions
+  # ==========================================
+
+  EnableCDRLambdaPutFunctionConcurrency:
+    Type: String
+    Description: 'Enable CDR Lambda Put Function Concurrency action'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # CDR Automated Response - S3 Actions
+  # ==========================================
+
+  EnableCDRS3DeleteBucketReplication:
+    Type: String
+    Description: 'Enable CDR S3 Delete Bucket Replication action'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  EnableCDRS3PutPublicAccessBlock:
+    Type: String
+    Description: 'Enable CDR S3 Put Public Access Block action'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # CDR Automated Response - EFS Actions
+  # ==========================================
+
+  EnableCDREFSRemovePublicAccess:
+    Type: String
+    Description: 'Enable CDR EFS Remove Public Access action'
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  # ==========================================
+  # Store Plugin - EC2 Actions
+  # ==========================================
+
+  EnableEC2InstanceManagement:
+    Type: String
+    Description: 'EC2 instance operations (describe, start, stop, reboot, terminate, modify)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableEC2SecurityGroupManagement:
+    Type: String
+    Description: 'Security group management (create, modify, authorize, revoke rules)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableEC2NetworkInterfaceManagement:
+    Type: String
+    Description: 'Network interface operations (describe, modify attributes)'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  EnableEC2VolumeManagement:
+    Type: String
+    Description: 'EBS volume and snapshot operations'
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+Conditions:
+  HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundaryArn, '']]
+
+  # CDR IAM Conditions
+  EnableCDRUpdateAccessKeyStatusPolicy: !Equals [!Ref EnableCDRUpdateAccessKeyStatus, 'true']
+  EnableCDRApplyDenyPolicyToUserPolicy: !Equals [!Ref EnableCDRApplyDenyPolicyToUser, 'true']
+  EnableCDRApplyDenyPolicyToRolePolicy: !Equals [!Ref EnableCDRApplyDenyPolicyToRole, 'true']
+  EnableCDRGetInstanceProfileRolePolicy: !Equals [!Ref EnableCDRGetInstanceProfileRole, 'true']
+
+  # Store Plugin IAM Conditions
+  EnableIAMGetUserPolicy: !Equals [!Ref EnableIAMGetUser, 'true']
+  EnableIAMListUsersPolicy: !Equals [!Ref EnableIAMListUsers, 'true']
+  EnableIAMCreateUserPolicy: !Equals [!Ref EnableIAMCreateUser, 'true']
+  EnableIAMDeleteUserPolicy: !Equals [!Ref EnableIAMDeleteUser, 'true']
+  EnableIAMUpdateUserPolicy: !Equals [!Ref EnableIAMUpdateUser, 'true']
+  EnableIAMCreateGroupPolicy: !Equals [!Ref EnableIAMCreateGroup, 'true']
+  EnableIAMDeleteGroupPolicy: !Equals [!Ref EnableIAMDeleteGroup, 'true']
+  EnableIAMAddUserToGroupPolicy: !Equals [!Ref EnableIAMAddUserToGroup, 'true']
+  EnableIAMRemoveUserFromGroupPolicy: !Equals [!Ref EnableIAMRemoveUserFromGroup, 'true']
+
+  EnableIAMListAccessKeysPolicy: !Equals [!Ref EnableIAMListAccessKeys, 'true']
+  EnableIAMCreateAccessKeyPolicy: !Equals [!Ref EnableIAMCreateAccessKey, 'true']
+  EnableIAMDeleteAccessKeyPolicy: !Equals [!Ref EnableIAMDeleteAccessKey, 'true']
+  EnableIAMUpdateAccessKeyPolicy: !Equals [!Ref EnableIAMUpdateAccessKey, 'true']
+  EnableIAMGetAccessKeyLastUsedPolicy: !Equals [!Ref EnableIAMGetAccessKeyLastUsed, 'true']
+  EnableIAMMFAManagementPolicy: !Equals [!Ref EnableIAMMFAManagement, 'true']
+  EnableIAMSSHKeyManagementPolicy: !Equals [!Ref EnableIAMSSHKeyManagement, 'true']
+  EnableIAMServiceCredentialManagementPolicy: !Equals [!Ref EnableIAMServiceCredentialManagement, 'true']
+
+  EnableIAMGetPolicyPolicy: !Equals [!Ref EnableIAMGetPolicy, 'true']
+  EnableIAMListPoliciesPolicy: !Equals [!Ref EnableIAMListPolicies, 'true']
+  EnableIAMCreatePolicyPolicy: !Equals [!Ref EnableIAMCreatePolicy, 'true']
+  EnableIAMDeletePolicyPolicy: !Equals [!Ref EnableIAMDeletePolicy, 'true']
+  EnableIAMAttachUserPolicyPolicy: !Equals [!Ref EnableIAMAttachUserPolicy, 'true']
+  EnableIAMDetachUserPolicyPolicy: !Equals [!Ref EnableIAMDetachUserPolicy, 'true']
+  EnableIAMPutUserPolicyPolicy: !Equals [!Ref EnableIAMPutUserPolicy, 'true']
+  EnableIAMDeleteUserPolicyPolicy: !Equals [!Ref EnableIAMDeleteUserPolicy, 'true']
+  EnableIAMPermissionBoundaryPolicy: !Equals [!Ref EnableIAMPermissionBoundary, 'true']
+
+  EnableIAMGetRolePolicy: !Equals [!Ref EnableIAMGetRole, 'true']
+  EnableIAMListRolesPolicy: !Equals [!Ref EnableIAMListRoles, 'true']
+  EnableIAMCreateRolePolicy: !Equals [!Ref EnableIAMCreateRole, 'true']
+  EnableIAMDeleteRolePolicy: !Equals [!Ref EnableIAMDeleteRole, 'true']
+  EnableIAMUpdateAssumeRolePolicyPolicy: !Equals [!Ref EnableIAMUpdateAssumeRolePolicy, 'true']
+  EnableIAMAttachRolePolicyPolicy: !Equals [!Ref EnableIAMAttachRolePolicy, 'true']
+  EnableIAMDetachRolePolicyPolicy: !Equals [!Ref EnableIAMDetachRolePolicy, 'true']
+  EnableIAMPutRolePolicyPolicy: !Equals [!Ref EnableIAMPutRolePolicy, 'true']
+  EnableIAMDeleteRolePolicyPolicy: !Equals [!Ref EnableIAMDeleteRolePolicy, 'true']
+  EnableIAMInstanceProfileManagementPolicy: !Equals [!Ref EnableIAMInstanceProfileManagement, 'true']
+
+  EnableIAMGetAccountSummaryPolicy: !Equals [!Ref EnableIAMGetAccountSummary, 'true']
+  EnableIAMGetAccountPasswordPolicyPolicy: !Equals [!Ref EnableIAMGetAccountPasswordPolicy, 'true']
+  EnableIAMCredentialReportPolicy: !Equals [!Ref EnableIAMCredentialReport, 'true']
+  EnableIAMServiceLastAccessedPolicy: !Equals [!Ref EnableIAMServiceLastAccessed, 'true']
+
+  EnableIAMSAMLProviderPolicy: !Equals [!Ref EnableIAMSAMLProvider, 'true']
+  EnableIAMOIDCProviderPolicy: !Equals [!Ref EnableIAMOIDCProvider, 'true']
+
+  EnableIAMLoginProfilePolicy: !Equals [!Ref EnableIAMLoginProfile, 'true']
+  EnableIAMPasswordPolicyPolicy: !Equals [!Ref EnableIAMPasswordPolicy, 'true']
+
+  # CDR EC2 Conditions
+  EnableCDREC2GetInstanceStatePolicy: !Equals [!Ref EnableCDREC2GetInstanceState, 'true']
+  EnableCDREC2StopInstancePolicy: !Equals [!Ref EnableCDREC2StopInstance, 'true']
+  EnableCDREC2FindInstancesByIPPolicy: !Equals [!Ref EnableCDREC2FindInstancesByIP, 'true']
+  EnableCDREC2DeleteNATGatewayPolicy: !Equals [!Ref EnableCDREC2DeleteNATGateway, 'true']
+  EnableCDREC2FindNATGatewaysByIPPolicy: !Equals [!Ref EnableCDREC2FindNATGatewaysByIP, 'true']
+  EnableCDREC2MakeSnapshotPrivatePolicy: !Equals [!Ref EnableCDREC2MakeSnapshotPrivate, 'true']
+  EnableCDREC2ModifySecurityGroupIngressPolicy: !Equals [!Ref EnableCDREC2ModifySecurityGroupIngress, 'true']
+
+  # CDR SSM Conditions
+  EnableCDRSSMInstallFalconAgentPolicy: !Equals [!Ref EnableCDRSSMInstallFalconAgent, 'true']
+  EnableCDRSSMGetTaskStatusPolicy: !Equals [!Ref EnableCDRSSMGetTaskStatus, 'true']
+
+  # CDR Lambda Conditions
+  EnableCDRLambdaPutFunctionConcurrencyPolicy: !Equals [!Ref EnableCDRLambdaPutFunctionConcurrency, 'true']
+
+  # CDR S3 Conditions
+  EnableCDRS3DeleteBucketReplicationPolicy: !Equals [!Ref EnableCDRS3DeleteBucketReplication, 'true']
+  EnableCDRS3PutPublicAccessBlockPolicy: !Equals [!Ref EnableCDRS3PutPublicAccessBlock, 'true']
+
+  # CDR EFS Conditions
+  EnableCDREFSRemovePublicAccessPolicy: !Equals [!Ref EnableCDREFSRemovePublicAccess, 'true']
+
+  # Store Plugin EC2 Conditions
+  EnableEC2InstanceManagementPolicy: !Equals [!Ref EnableEC2InstanceManagement, 'true']
+  EnableEC2SecurityGroupManagementPolicy: !Equals [!Ref EnableEC2SecurityGroupManagement, 'true']
+  EnableEC2NetworkInterfaceManagementPolicy: !Equals [!Ref EnableEC2NetworkInterfaceManagement, 'true']
+  EnableEC2VolumeManagementPolicy: !Equals [!Ref EnableEC2VolumeManagement, 'true']
+
+Resources:
+  CrowdStrikeSOARRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref SOARRoleName
+      Description: 'IAM role for CrowdStrike SOAR actions with granular permissions'
+      MaxSessionDuration: 43200
+      PermissionsBoundary: !If [HasPermissionsBoundary, !Ref PermissionsBoundaryArn, !Ref 'AWS::NoValue']
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref IntermediateRoleArn
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref ExternalId
+      Tags:
+        - Key: CrowdStrikeManaged
+          Value: 'true'
+        - Key: Purpose
+          Value: 'SOAR Actions'
+        - Key: ManagedBy
+          Value: 'CloudFormation'
+
+  # ==========================================
+  # CDR Automated Response - IAM Policies
+  # ==========================================
+
+  CDRUpdateAccessKeyStatusPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRUpdateAccessKeyStatusPolicy
+    Properties:
+      PolicyName: CDR-IAM-UpdateAccessKeyStatus
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CDRUpdateAccessKeyStatus
+            Effect: Allow
+            Action:
+              - 'iam:UpdateAccessKey'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  CDRApplyDenyPolicyToUserPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRApplyDenyPolicyToUserPolicy
+    Properties:
+      PolicyName: CDR-IAM-ApplyDenyPolicyToUser
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CDRApplyDenyPolicyToUser
+            Effect: Allow
+            Action:
+              - 'iam:AttachUserPolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  CDRApplyDenyPolicyToRolePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRApplyDenyPolicyToRolePolicy
+    Properties:
+      PolicyName: CDR-IAM-ApplyDenyPolicyToRole
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CDRApplyDenyPolicyToRole
+            Effect: Allow
+            Action:
+              - 'iam:AttachRolePolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  CDRGetInstanceProfileRolePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRGetInstanceProfileRolePolicy
+    Properties:
+      PolicyName: CDR-IAM-GetInstanceProfileRole
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CDRGetInstanceProfileRole
+            Effect: Allow
+            Action:
+              - 'iam:GetInstanceProfile'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/*'
+
+  # ==========================================
+  # Store Plugin - User Lifecycle Policies
+  # ==========================================
+
+  IAMGetUserPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMGetUserPolicy
+    Properties:
+      PolicyName: Store-IAM-GetUser
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetUser
+            Effect: Allow
+            Action:
+              - 'iam:GetUser'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMListUsersPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMListUsersPolicy
+    Properties:
+      PolicyName: Store-IAM-ListUsers
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ListUsers
+            Effect: Allow
+            Action:
+              - 'iam:ListUsers'
+            Resource: '*'
+
+  IAMCreateUserPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMCreateUserPolicy
+    Properties:
+      PolicyName: Store-IAM-CreateUser
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CreateUser
+            Effect: Allow
+            Action:
+              - 'iam:CreateUser'
+              - 'iam:TagUser'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMDeleteUserPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMDeleteUserPolicy
+    Properties:
+      PolicyName: Store-IAM-DeleteUser
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DeleteUser
+            Effect: Allow
+            Action:
+              - 'iam:DeleteUser'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMUpdateUserPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMUpdateUserPolicy
+    Properties:
+      PolicyName: Store-IAM-UpdateUser
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: UpdateUser
+            Effect: Allow
+            Action:
+              - 'iam:UpdateUser'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMGroupManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMCreateGroupPolicy
+    Properties:
+      PolicyName: Store-IAM-GroupManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GroupManagement
+            Effect: Allow
+            Action:
+              - 'iam:CreateGroup'
+              - 'iam:DeleteGroup'
+              - 'iam:GetGroup'
+              - 'iam:ListGroups'
+              - 'iam:UpdateGroup'
+              - 'iam:AddUserToGroup'
+              - 'iam:RemoveUserFromGroup'
+              - 'iam:ListGroupsForUser'
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:group/*'
+              - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  # ==========================================
+  # Store Plugin - Access Key Policies
+  # ==========================================
+
+  IAMListAccessKeysPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMListAccessKeysPolicy
+    Properties:
+      PolicyName: Store-IAM-ListAccessKeys
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ListAccessKeys
+            Effect: Allow
+            Action:
+              - 'iam:ListAccessKeys'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMCreateAccessKeyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMCreateAccessKeyPolicy
+    Properties:
+      PolicyName: Store-IAM-CreateAccessKey
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CreateAccessKey
+            Effect: Allow
+            Action:
+              - 'iam:CreateAccessKey'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMDeleteAccessKeyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMDeleteAccessKeyPolicy
+    Properties:
+      PolicyName: Store-IAM-DeleteAccessKey
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DeleteAccessKey
+            Effect: Allow
+            Action:
+              - 'iam:DeleteAccessKey'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMUpdateAccessKeyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMUpdateAccessKeyPolicy
+    Properties:
+      PolicyName: Store-IAM-UpdateAccessKey
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: UpdateAccessKey
+            Effect: Allow
+            Action:
+              - 'iam:UpdateAccessKey'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMGetAccessKeyLastUsedPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMGetAccessKeyLastUsedPolicy
+    Properties:
+      PolicyName: Store-IAM-GetAccessKeyLastUsed
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetAccessKeyLastUsed
+            Effect: Allow
+            Action:
+              - 'iam:GetAccessKeyLastUsed'
+            Resource: '*'
+
+  IAMMFAManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMMFAManagementPolicy
+    Properties:
+      PolicyName: Store-IAM-MFAManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: MFAManagement
+            Effect: Allow
+            Action:
+              - 'iam:CreateVirtualMFADevice'
+              - 'iam:DeleteVirtualMFADevice'
+              - 'iam:EnableMFADevice'
+              - 'iam:DeactivateMFADevice'
+              - 'iam:ResyncMFADevice'
+              - 'iam:ListMFADevices'
+              - 'iam:ListVirtualMFADevices'
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+              - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:mfa/*'
+
+  IAMSSHKeyManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMSSHKeyManagementPolicy
+    Properties:
+      PolicyName: Store-IAM-SSHKeyManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SSHKeyManagement
+            Effect: Allow
+            Action:
+              - 'iam:UploadSSHPublicKey'
+              - 'iam:GetSSHPublicKey'
+              - 'iam:UpdateSSHPublicKey'
+              - 'iam:DeleteSSHPublicKey'
+              - 'iam:ListSSHPublicKeys'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMServiceCredentialManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMServiceCredentialManagementPolicy
+    Properties:
+      PolicyName: Store-IAM-ServiceCredentialManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ServiceCredentialManagement
+            Effect: Allow
+            Action:
+              - 'iam:CreateServiceSpecificCredential'
+              - 'iam:UpdateServiceSpecificCredential'
+              - 'iam:DeleteServiceSpecificCredential'
+              - 'iam:ResetServiceSpecificCredential'
+              - 'iam:ListServiceSpecificCredentials'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  # ==========================================
+  # Store Plugin - Policy Management
+  # ==========================================
+
+  IAMGetPolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMGetPolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-GetPolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetPolicy
+            Effect: Allow
+            Action:
+              - 'iam:GetPolicy'
+              - 'iam:GetPolicyVersion'
+              - 'iam:ListPolicyVersions'
+            Resource: '*'
+
+  IAMListPoliciesPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMListPoliciesPolicy
+    Properties:
+      PolicyName: Store-IAM-ListPolicies
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ListPolicies
+            Effect: Allow
+            Action:
+              - 'iam:ListPolicies'
+              - 'iam:ListEntitiesForPolicy'
+            Resource: '*'
+
+  IAMCreatePolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMCreatePolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-CreatePolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CreatePolicy
+            Effect: Allow
+            Action:
+              - 'iam:CreatePolicy'
+              - 'iam:CreatePolicyVersion'
+              - 'iam:TagPolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/*'
+
+  IAMDeletePolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMDeletePolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-DeletePolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DeletePolicy
+            Effect: Allow
+            Action:
+              - 'iam:DeletePolicy'
+              - 'iam:DeletePolicyVersion'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/*'
+
+  IAMAttachUserPolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMAttachUserPolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-AttachUserPolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AttachUserPolicy
+            Effect: Allow
+            Action:
+              - 'iam:AttachUserPolicy'
+              - 'iam:ListAttachedUserPolicies'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMDetachUserPolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMDetachUserPolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-DetachUserPolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DetachUserPolicy
+            Effect: Allow
+            Action:
+              - 'iam:DetachUserPolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMPutUserPolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMPutUserPolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-PutUserPolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PutUserPolicy
+            Effect: Allow
+            Action:
+              - 'iam:PutUserPolicy'
+              - 'iam:GetUserPolicy'
+              - 'iam:ListUserPolicies'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMDeleteUserPolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMDeleteUserPolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-DeleteUserPolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DeleteUserPolicy
+            Effect: Allow
+            Action:
+              - 'iam:DeleteUserPolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMPermissionBoundaryPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMPermissionBoundaryPolicy
+    Properties:
+      PolicyName: Store-IAM-PermissionBoundary
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PermissionBoundary
+            Effect: Allow
+            Action:
+              - 'iam:PutUserPermissionsBoundary'
+              - 'iam:DeleteUserPermissionsBoundary'
+              - 'iam:PutRolePermissionsBoundary'
+              - 'iam:DeleteRolePermissionsBoundary'
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+              - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  # ==========================================
+  # Store Plugin - Role Management
+  # ==========================================
+
+  IAMGetRolePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMGetRolePolicy
+    Properties:
+      PolicyName: Store-IAM-GetRole
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetRole
+            Effect: Allow
+            Action:
+              - 'iam:GetRole'
+              - 'iam:GetRolePolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  IAMListRolesPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMListRolesPolicy
+    Properties:
+      PolicyName: Store-IAM-ListRoles
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ListRoles
+            Effect: Allow
+            Action:
+              - 'iam:ListRoles'
+              - 'iam:ListRolePolicies'
+              - 'iam:ListAttachedRolePolicies'
+            Resource: '*'
+
+  IAMCreateRolePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMCreateRolePolicy
+    Properties:
+      PolicyName: Store-IAM-CreateRole
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CreateRole
+            Effect: Allow
+            Action:
+              - 'iam:CreateRole'
+              - 'iam:TagRole'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  IAMDeleteRolePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMDeleteRolePolicy
+    Properties:
+      PolicyName: Store-IAM-DeleteRole
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DeleteRole
+            Effect: Allow
+            Action:
+              - 'iam:DeleteRole'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  IAMUpdateAssumeRolePolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMUpdateAssumeRolePolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-UpdateAssumeRolePolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: UpdateAssumeRolePolicy
+            Effect: Allow
+            Action:
+              - 'iam:UpdateAssumeRolePolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  IAMAttachRolePolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMAttachRolePolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-AttachRolePolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AttachRolePolicy
+            Effect: Allow
+            Action:
+              - 'iam:AttachRolePolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  IAMDetachRolePolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMDetachRolePolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-DetachRolePolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DetachRolePolicy
+            Effect: Allow
+            Action:
+              - 'iam:DetachRolePolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  IAMPutRolePolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMPutRolePolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-PutRolePolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PutRolePolicy
+            Effect: Allow
+            Action:
+              - 'iam:PutRolePolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  IAMDeleteRolePolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMDeleteRolePolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-DeleteRolePolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DeleteRolePolicy
+            Effect: Allow
+            Action:
+              - 'iam:DeleteRolePolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  IAMInstanceProfileManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMInstanceProfileManagementPolicy
+    Properties:
+      PolicyName: Store-IAM-InstanceProfileManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: InstanceProfileManagement
+            Effect: Allow
+            Action:
+              - 'iam:GetInstanceProfile'
+              - 'iam:ListInstanceProfiles'
+              - 'iam:ListInstanceProfilesForRole'
+              - 'iam:CreateInstanceProfile'
+              - 'iam:DeleteInstanceProfile'
+              - 'iam:AddRoleToInstanceProfile'
+              - 'iam:RemoveRoleFromInstanceProfile'
+              - 'iam:TagInstanceProfile'
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/*'
+              - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+
+  # ==========================================
+  # Store Plugin - Security Audit
+  # ==========================================
+
+  IAMGetAccountSummaryPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMGetAccountSummaryPolicy
+    Properties:
+      PolicyName: Store-IAM-GetAccountSummary
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetAccountSummary
+            Effect: Allow
+            Action:
+              - 'iam:GetAccountSummary'
+            Resource: '*'
+
+  IAMGetAccountPasswordPolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMGetAccountPasswordPolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-GetAccountPasswordPolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetAccountPasswordPolicy
+            Effect: Allow
+            Action:
+              - 'iam:GetAccountPasswordPolicy'
+            Resource: '*'
+
+  IAMCredentialReportPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMCredentialReportPolicy
+    Properties:
+      PolicyName: Store-IAM-CredentialReport
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CredentialReport
+            Effect: Allow
+            Action:
+              - 'iam:GenerateCredentialReport'
+              - 'iam:GetCredentialReport'
+            Resource: '*'
+
+  IAMServiceLastAccessedPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMServiceLastAccessedPolicy
+    Properties:
+      PolicyName: Store-IAM-ServiceLastAccessed
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ServiceLastAccessed
+            Effect: Allow
+            Action:
+              - 'iam:GenerateServiceLastAccessedDetails'
+              - 'iam:GetServiceLastAccessedDetails'
+              - 'iam:GetServiceLastAccessedDetailsWithEntities'
+            Resource: '*'
+
+  # ==========================================
+  # Store Plugin - Federated Identity
+  # ==========================================
+
+  IAMSAMLProviderPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMSAMLProviderPolicy
+    Properties:
+      PolicyName: Store-IAM-SAMLProvider
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SAMLProvider
+            Effect: Allow
+            Action:
+              - 'iam:CreateSAMLProvider'
+              - 'iam:DeleteSAMLProvider'
+              - 'iam:UpdateSAMLProvider'
+              - 'iam:GetSAMLProvider'
+              - 'iam:ListSAMLProviders'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:saml-provider/*'
+
+  IAMOIDCProviderPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMOIDCProviderPolicy
+    Properties:
+      PolicyName: Store-IAM-OIDCProvider
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: OIDCProvider
+            Effect: Allow
+            Action:
+              - 'iam:CreateOpenIDConnectProvider'
+              - 'iam:DeleteOpenIDConnectProvider'
+              - 'iam:UpdateOpenIDConnectProviderThumbprint'
+              - 'iam:AddClientIDToOpenIDConnectProvider'
+              - 'iam:RemoveClientIDFromOpenIDConnectProvider'
+              - 'iam:GetOpenIDConnectProvider'
+              - 'iam:ListOpenIDConnectProviders'
+              - 'iam:TagOpenIDConnectProvider'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/*'
+
+  # ==========================================
+  # Store Plugin - Password & Authentication
+  # ==========================================
+
+  IAMLoginProfilePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMLoginProfilePolicy
+    Properties:
+      PolicyName: Store-IAM-LoginProfile
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: LoginProfile
+            Effect: Allow
+            Action:
+              - 'iam:CreateLoginProfile'
+              - 'iam:GetLoginProfile'
+              - 'iam:UpdateLoginProfile'
+              - 'iam:DeleteLoginProfile'
+              - 'iam:ChangePassword'
+            Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/*'
+
+  IAMPasswordPolicyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableIAMPasswordPolicyPolicy
+    Properties:
+      PolicyName: Store-IAM-PasswordPolicy
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PasswordPolicy
+            Effect: Allow
+            Action:
+              - 'iam:UpdateAccountPasswordPolicy'
+              - 'iam:DeleteAccountPasswordPolicy'
+            Resource: '*'
+
+  # ==========================================
+  # CDR Automated Response - EC2 Policies
+  # ==========================================
+
+  CDREC2GetInstanceStatePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDREC2GetInstanceStatePolicy
+    Properties:
+      PolicyName: CDR-EC2-GetInstanceState
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetInstanceState
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeInstances'
+            Resource: '*'
+
+  CDREC2StopInstancePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDREC2StopInstancePolicy
+    Properties:
+      PolicyName: CDR-EC2-StopInstance
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: StopInstance
+            Effect: Allow
+            Action:
+              - 'ec2:StopInstances'
+            Resource: !Sub 'arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*'
+
+  CDREC2FindInstancesByIPPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDREC2FindInstancesByIPPolicy
+    Properties:
+      PolicyName: CDR-EC2-FindInstancesByIP
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: FindInstancesByIP
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeInstances'
+            Resource: '*'
+
+  CDREC2DeleteNATGatewayPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDREC2DeleteNATGatewayPolicy
+    Properties:
+      PolicyName: CDR-EC2-DeleteNATGateway
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DeleteNATGateway
+            Effect: Allow
+            Action:
+              - 'ec2:DeleteNatGateway'
+              - 'ec2:DescribeNatGateways'
+            Resource: '*'
+
+  CDREC2FindNATGatewaysByIPPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDREC2FindNATGatewaysByIPPolicy
+    Properties:
+      PolicyName: CDR-EC2-FindNATGatewaysByIP
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: FindNATGatewaysByIP
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeNatGateways'
+            Resource: '*'
+
+  CDREC2MakeSnapshotPrivatePolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDREC2MakeSnapshotPrivatePolicy
+    Properties:
+      PolicyName: CDR-EC2-MakeSnapshotPrivate
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: MakeSnapshotPrivate
+            Effect: Allow
+            Action:
+              - 'ec2:ModifySnapshotAttribute'
+              - 'ec2:DescribeSnapshots'
+            Resource: '*'
+
+  CDREC2ModifySecurityGroupIngressPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDREC2ModifySecurityGroupIngressPolicy
+    Properties:
+      PolicyName: CDR-EC2-ModifySecurityGroupIngress
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ModifySecurityGroupIngress
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeSecurityGroups'
+              - 'ec2:RevokeSecurityGroupIngress'
+            Resource: '*'
+
+  # ==========================================
+  # CDR Automated Response - SSM Policies
+  # ==========================================
+
+  CDRSSMInstallFalconAgentPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRSSMInstallFalconAgentPolicy
+    Properties:
+      PolicyName: CDR-SSM-InstallFalconAgent
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: InstallFalconAgent
+            Effect: Allow
+            Action:
+              - 'ssm:StartAutomationExecution'
+            Resource: '*'
+
+  CDRSSMGetTaskStatusPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRSSMGetTaskStatusPolicy
+    Properties:
+      PolicyName: CDR-SSM-GetTaskStatus
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetTaskStatus
+            Effect: Allow
+            Action:
+              - 'ssm:GetAutomationExecution'
+            Resource: '*'
+
+  # ==========================================
+  # CDR Automated Response - Lambda Policies
+  # ==========================================
+
+  CDRLambdaPutFunctionConcurrencyPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRLambdaPutFunctionConcurrencyPolicy
+    Properties:
+      PolicyName: CDR-Lambda-PutFunctionConcurrency
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PutFunctionConcurrency
+            Effect: Allow
+            Action:
+              - 'lambda:PutFunctionConcurrency'
+            Resource: !Sub 'arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function/*'
+
+  # ==========================================
+  # CDR Automated Response - S3 Policies
+  # ==========================================
+
+  CDRS3DeleteBucketReplicationPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRS3DeleteBucketReplicationPolicy
+    Properties:
+      PolicyName: CDR-S3-DeleteBucketReplication
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DeleteBucketReplication
+            Effect: Allow
+            Action:
+              - 's3:PutReplicationConfiguration'
+            Resource: !Sub 'arn:${AWS::Partition}:s3:::*'
+
+  CDRS3PutPublicAccessBlockPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDRS3PutPublicAccessBlockPolicy
+    Properties:
+      PolicyName: CDR-S3-PutPublicAccessBlock
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PutPublicAccessBlock
+            Effect: Allow
+            Action:
+              - 's3:PutBucketPublicAccessBlock'
+              - 's3:PutAccountPublicAccessBlock'
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:s3:::*'
+              - '*'
+
+  # ==========================================
+  # CDR Automated Response - EFS Policies
+  # ==========================================
+
+  CDREFSRemovePublicAccessPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableCDREFSRemovePublicAccessPolicy
+    Properties:
+      PolicyName: CDR-EFS-RemovePublicAccess
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: RemovePublicAccess
+            Effect: Allow
+            Action:
+              - 'elasticfilesystem:DescribeFileSystemPolicy'
+              - 'elasticfilesystem:DeleteFileSystemPolicy'
+              - 'elasticfilesystem:PutFileSystemPolicy'
+            Resource: !Sub 'arn:${AWS::Partition}:elasticfilesystem:*:${AWS::AccountId}:file-system/*'
+
+  # ==========================================
+  # Store Plugin - EC2 Policies
+  # ==========================================
+
+  EC2InstanceManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableEC2InstanceManagementPolicy
+    Properties:
+      PolicyName: Store-EC2-InstanceManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: InstanceManagement
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeInstances'
+              - 'ec2:DescribeInstanceStatus'
+              - 'ec2:DescribeInstanceAttribute'
+              - 'ec2:StartInstances'
+              - 'ec2:StopInstances'
+              - 'ec2:RebootInstances'
+              - 'ec2:TerminateInstances'
+              - 'ec2:ModifyInstanceAttribute'
+            Resource: '*'
+
+  EC2SecurityGroupManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableEC2SecurityGroupManagementPolicy
+    Properties:
+      PolicyName: Store-EC2-SecurityGroupManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SecurityGroupManagement
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeSecurityGroups'
+              - 'ec2:DescribeSecurityGroupRules'
+              - 'ec2:CreateSecurityGroup'
+              - 'ec2:AuthorizeSecurityGroupIngress'
+              - 'ec2:AuthorizeSecurityGroupEgress'
+              - 'ec2:RevokeSecurityGroupIngress'
+              - 'ec2:RevokeSecurityGroupEgress'
+              - 'ec2:ModifySecurityGroupRules'
+              - 'ec2:DeleteSecurityGroup'
+            Resource: '*'
+
+  EC2NetworkInterfaceManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableEC2NetworkInterfaceManagementPolicy
+    Properties:
+      PolicyName: Store-EC2-NetworkInterfaceManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: NetworkInterfaceManagement
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeNetworkInterfaces'
+              - 'ec2:ModifyNetworkInterfaceAttribute'
+              - 'ec2:CreateNetworkInterface'
+              - 'ec2:DeleteNetworkInterface'
+              - 'ec2:AttachNetworkInterface'
+              - 'ec2:DetachNetworkInterface'
+            Resource: '*'
+
+  EC2VolumeManagementPolicy:
+    Type: AWS::IAM::Policy
+    Condition: EnableEC2VolumeManagementPolicy
+    Properties:
+      PolicyName: Store-EC2-VolumeManagement
+      Roles:
+        - !Ref CrowdStrikeSOARRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: VolumeManagement
+            Effect: Allow
+            Action:
+              - 'ec2:DescribeVolumes'
+              - 'ec2:CreateSnapshot'
+              - 'ec2:DescribeSnapshots'
+              - 'ec2:DeleteSnapshot'
+              - 'ec2:CreateVolume'
+              - 'ec2:DeleteVolume'
+              - 'ec2:AttachVolume'
+              - 'ec2:DetachVolume'
+            Resource: '*'
+
+Outputs:
+  # Core Configuration Values
+  RoleArn:
+    Description: 'ARN of the CrowdStrike SOAR IAM role (copy this to CrowdStrike Store)'
+    Value: !GetAtt CrowdStrikeSOARRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleArn'
+
+  RoleName:
+    Description: 'IAM Role Name (for reference only)'
+    Value: !Ref CrowdStrikeSOARRole
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleName'
+
+  AccountId:
+    Description: 'AWS Account ID (copy this to CrowdStrike Store)'
+    Value: !Ref AWS::AccountId
+
+  ExternalIdReminder:
+    Description: 'External ID (use the same value you provided during stack creation)'
+    Value: 'Use the External ID parameter value from stack creation'
+
+  ConfigurationName:
+    Description: 'Suggested Configuration Name for CrowdStrike Store'
+    Value: !Sub '${AWS::AccountId}-soar'
+
+  # CrowdStrike Store Plugin Links
+  StoreIAMPluginLink:
+    Description: 'Configure AWS IAM SOAR Actions in CrowdStrike Store'
+    Value: 'https://falcon.crowdstrike.com/store/apps/details/aws-iam-soar-actions'
+
+  StoreEC2PluginLink:
+    Description: 'Configure AWS EC2 SOAR Actions in CrowdStrike Store'
+    Value: 'https://falcon.crowdstrike.com/store/apps/details/aws-ec2-soar-actions'
+
+  # Quick Copy Configuration Template
+  ConfigurationValues:
+    Description: 'Copy these values to CrowdStrike Store plugin configuration'
+    Value: !Sub |
+      ╔═══════════════════════════════════════════════════════════════════╗
+      ║         CrowdStrike Store Plugin Configuration Values            ║
+      ╚═══════════════════════════════════════════════════════════════════╝
+
+      📋 COPY THESE VALUES TO CROWDSTRIKE STORE:
+
+      Configuration Name:   ${AWS::AccountId}-soar
+      AWS Account ID:       ${AWS::AccountId}
+      IAM Role Name:        ${SOARRoleName}
+      IAM Role ARN:         ${CrowdStrikeSOARRole.Arn}
+      External ID:          [Use the value you provided during stack creation]
+      AWS Region:           ${AWS::Region}
+
+      ═══════════════════════════════════════════════════════════════════
+
+      🔗 STORE PLUGIN LINKS:
+
+      IAM Actions:   https://falcon.crowdstrike.com/store/apps/details/aws-iam-soar-actions
+      EC2 Actions:   https://falcon.crowdstrike.com/store/apps/details/aws-ec2-soar-actions
+      S3 Actions:    https://falcon.crowdstrike.com/store/apps/details/aws-s3-soar-actions
+      Lambda:        https://falcon.crowdstrike.com/store/apps/details/aws-lambda-soar-actions
+      GuardDuty:     https://falcon.crowdstrike.com/store/apps/details/aws-guardduty-soar-actions
+
+      ═══════════════════════════════════════════════════════════════════
+
+  # Step-by-Step Instructions
+  SetupInstructions:
+    Description: 'Complete setup instructions'
+    Value: !Sub |
+      ╔═══════════════════════════════════════════════════════════════════╗
+      ║              CrowdStrike SOAR Setup Instructions                  ║
+      ╚═══════════════════════════════════════════════════════════════════╝
+
+      ✅ CLOUDFORMATION DEPLOYMENT: COMPLETE
+
+      The IAM role has been created with granular action-level permissions.
+
+      ───────────────────────────────────────────────────────────────────
+
+      📌 NEXT STEPS - Configure Store Plugins:
+
+      FOR CDR AUTOMATED RESPONSE (Detection-Driven):
+      ✓ No Store configuration needed!
+      ✓ CDR will automatically use this role when detections fire
+      ✓ Actions: Update Access Keys, Apply Deny Policies, Stop Instances, etc.
+
+      FOR STORE PLUGINS (Manual/Workflow SOAR):
+
+      1️⃣  Log into Falcon Console
+         https://falcon.crowdstrike.com/
+
+      2️⃣  Navigate to CrowdStrike Store
+         Go to: CrowdStrike Store > All apps
+
+      3️⃣  Configure Each Enabled Plugin:
+
+         For AWS IAM SOAR Actions:
+         ├─ Link: https://falcon.crowdstrike.com/store/apps/details/aws-iam-soar-actions
+         ├─ Click "Configure" button
+         ├─ Click "Add configuration"
+         └─ Enter values (see ConfigurationValues output above)
+
+         For AWS EC2 SOAR Actions:
+         ├─ Link: https://falcon.crowdstrike.com/store/apps/details/aws-ec2-soar-actions
+         ├─ Click "Configure" button
+         ├─ Click "Add configuration"
+         └─ Enter values (see ConfigurationValues output above)
+
+         Repeat for each AWS service you enabled (S3, Lambda, GuardDuty, etc.)
+
+      4️⃣  Test Configuration:
+         ├─ In CrowdStrike Falcon, create a test Fusion workflow
+         ├─ Add an AWS action (e.g., "AWS IAM - Get User")
+         ├─ Select your configuration: ${AWS::AccountId}-soar
+         └─ Run the workflow to verify connectivity
+
+      5️⃣  Monitor Usage:
+         Check AWS CloudTrail for role assumption events:
+         aws cloudtrail lookup-events --lookup-attributes AttributeKey=ResourceName,AttributeValue=${SOARRoleName}
+
+      ───────────────────────────────────────────────────────────────────
+
+      📊 ENABLED ACTIONS SUMMARY:
+
+      CDR Automated Response (Enabled by Default):
+      ${EnableCDRUpdateAccessKeyStatus == 'true' ? '✓' : '✗'} Update Access Key Status
+      ${EnableCDRApplyDenyPolicyToUser == 'true' ? '✓' : '✗'} Apply Deny Policy to User
+      ${EnableCDRApplyDenyPolicyToRole == 'true' ? '✓' : '✗'} Apply Deny Policy to Role
+      ${EnableCDRGetInstanceProfileRole == 'true' ? '✓' : '✗'} Get Instance Profile Role
+      ${EnableCDREC2GetInstanceState == 'true' ? '✓' : '✗'} EC2 Get Instance State
+      ${EnableCDREC2StopInstance == 'true' ? '✓' : '✗'} EC2 Stop Instance
+      ${EnableCDREC2FindInstancesByIP == 'true' ? '✓' : '✗'} EC2 Find Instances by IP
+
+      Store Plugin Actions:
+      Review CloudFormation parameters for full list of enabled actions.
+
+      ───────────────────────────────────────────────────────────────────
+
+      ⚠️  SECURITY NOTES:
+
+      • This role uses External ID for secure authentication
+      • All actions are logged to AWS CloudTrail
+      • Role has 12-hour maximum session duration
+      • Only enabled actions have IAM permissions granted
+      • Review IAM policies in AWS Console for audit purposes
+
+      ───────────────────────────────────────────────────────────────────
+
+      📚 DOCUMENTATION:
+
+      CrowdStrike Fusion SOAR:
+      https://falcon.crowdstrike.com/documentation/page/fusion-soar
+
+      AWS SOAR Actions:
+      https://falcon.crowdstrike.com/documentation/page/cloud-security/soar-actions
+
+      CloudFormation Stack:
+      https://console.aws.amazon.com/cloudformation/home?region=${AWS::Region}#/stacks/stackinfo?stackId=${AWS::StackId}
+
+      ═══════════════════════════════════════════════════════════════════
+
+  # Region-Specific Store Link
+  FalconConsoleLink:
+    Description: 'Direct link to your Falcon console (region-specific)'
+    Value: !Sub |
+      US-1: https://falcon.crowdstrike.com/store
+      US-2: https://falcon.us-2.crowdstrike.com/store
+      EU-1: https://falcon.eu-1.crowdstrike.com/store
+      GOV-1: https://falcon.laggar.gcw.crowdstrike.com/store
+
+  # CloudTrail Verification Command
+  VerificationCommand:
+    Description: 'AWS CLI command to verify role usage in CloudTrail'
+    Value: !Sub |
+      # Verify role assumptions from CrowdStrike:
+      aws cloudtrail lookup-events \
+        --lookup-attributes AttributeKey=ResourceName,AttributeValue=${SOARRoleName} \
+        --max-items 10 \
+        --region ${AWS::Region}
+
+      # Check IAM role details:
+      aws iam get-role --role-name ${SOARRoleName}
+
+      # List attached policies:
+      aws iam list-attached-role-policies --role-name ${SOARRoleName}
+      aws iam list-role-policies --role-name ${SOARRoleName}
+
+  # Support Information
+  SupportInfo:
+    Description: 'Support and troubleshooting resources'
+    Value: |
+      ╔═══════════════════════════════════════════════════════════════════╗
+      ║                    Support & Troubleshooting                      ║
+      ╚═══════════════════════════════════════════════════════════════════╝
+
+      🔧 COMMON ISSUES:
+
+      "Access Denied" errors in Fusion workflows:
+      → Verify the action is enabled in CloudFormation parameters
+      → Check IAM policies are attached to the role
+      → Review CloudTrail logs for specific denied API calls
+
+      "Invalid External ID" error:
+      → Ensure External ID in Store matches CloudFormation parameter
+      → External ID is case-sensitive
+      → Cannot use same External ID across different integrations
+
+      "AssumeRole Failed" error:
+      → Verify Intermediate Role ARN is correct for your region
+      → Check trust policy on IAM role allows CrowdStrike principal
+      → Ensure External ID condition is properly configured
+
+      ───────────────────────────────────────────────────────────────────
+
+      📞 SUPPORT CONTACTS:
+
+      CrowdStrike Support:
+      • Email: support@crowdstrike.com
+      • Portal: https://supportportal.crowdstrike.com/
+
+      CloudFormation Template Issues:
+      • GitHub: https://github.com/CrowdStrike/terraform-aws-soar-actions
+
+      AWS Support:
+      • Console: https://console.aws.amazon.com/support/home
+
+      ═══════════════════════════════════════════════════════════════════

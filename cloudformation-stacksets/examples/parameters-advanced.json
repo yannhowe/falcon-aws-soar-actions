@@ -1,0 +1,114 @@
+[
+  {
+    "ParameterKey": "ExternalId",
+    "ParameterValue": "your-external-id-from-crowdstrike"
+  },
+  {
+    "ParameterKey": "IntermediateRoleArn",
+    "ParameterValue": "arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector"
+  },
+  {
+    "ParameterKey": "SOARRoleName",
+    "ParameterValue": "CrowdStrikeFusionSOARRole"
+  },
+  {
+    "ParameterKey": "EnableEC2",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableGuardDuty",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableIAM",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableS3",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableSTS",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableSecretsManager",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableSSM",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableWAF",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableConfig",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableAccessAnalyzer",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableSecurityLake",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableLambda",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableDynamoDB",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableEFS",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableNetworkFirewall",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableFirewallManager",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableSNS",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableSQS",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableCloudWatchLogs",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "EnableAthena",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableCognito",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableIAMIdentityCenter",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableOrganizations",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "EnableCertificateManager",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "PermissionsBoundaryArn",
+    "ParameterValue": "arn:aws:iam::123456789012:policy/SecurityBoundary"
+  }
+]
