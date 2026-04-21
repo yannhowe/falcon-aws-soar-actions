@@ -2,7 +2,7 @@
 
 CloudFormation templates for deploying CrowdStrike Falcon Fusion SOAR (Security Orchestration, Automation, and Response) actions to AWS with granular, action-level IAM permissions.
 
-[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=CrowdStrike-SOAR-Actions)
+[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://raw.githubusercontent.com/yannhowe/falcon-aws-soar-actions/refs/heads/main/cloudformation-stacksets/templates/crowdstrike-soar-actions-granular.yaml)
 [![Validate Templates](https://github.com/yannhowe/falcon-aws-soar-actions/actions/workflows/validate.yml/badge.svg)](https://github.com/yannhowe/falcon-aws-soar-actions/actions/workflows/validate.yml)
 
 ## Architecture
