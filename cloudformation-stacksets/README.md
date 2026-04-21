@@ -122,8 +122,8 @@ cloudformation-stacksets/
   1. Go to CrowdStrike Falcon console
   2. Navigate to **Store** > **AWS SOAR Actions** > **Configure**
   3. Copy the **External ID** shown
-- **IntermediateRoleArn**: `arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector`
-- **SOARRoleName**: `CrowdStrikeFusionSOARRole` (or choose custom name)
+- **CrowdStrikeRoleArn**: `arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/YOUR_REGION_SPECIFIC_ROLE_NAME`
+- **AutomatedResponseRoleName**: `CrowdStrikeAutomatedResponse` (or choose custom name)
 
 **Optional - Enable/Disable Actions:**
 - **CDR Actions**: Default is `true` (19 automated response actions)
@@ -257,12 +257,12 @@ Create your own parameters file:
     "ParameterValue": "your-actual-external-id"
   },
   {
-    "ParameterKey": "IntermediateRoleArn",
-    "ParameterValue": "arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector"
+    "ParameterKey": "CrowdStrikeRoleArn",
+    "ParameterValue": "arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/YOUR_REGION_SPECIFIC_ROLE_NAME"
   },
   {
-    "ParameterKey": "SOARRoleName",
-    "ParameterValue": "CrowdStrikeFusionSOARRole"
+    "ParameterKey": "AutomatedResponseRoleName",
+    "ParameterValue": "CrowdStrikeAutomatedResponse"
   },
   {
     "ParameterKey": "EnableEC2",
@@ -314,7 +314,7 @@ ACCOUNTS="111111111111 222222222222 333333333333"
 
 for account in $ACCOUNTS; do
     echo "Account: $account"
-    echo "Role ARN: arn:aws:iam::${account}:role/CrowdStrikeFusionSOARRole"
+    echo "Role ARN: arn:aws:iam::${account}:role/CrowdStrikeAutomatedResponse"
     echo
 done
 ```
@@ -327,7 +327,7 @@ For each account:
 3. Click **Configure** > **Add configuration**
 4. Enter:
    - **Configuration Name**: `<account-id>-soar`
-   - **Role ARN**: `arn:aws:iam::<account-id>:role/CrowdStrikeFusionSOARRole`
+   - **Role ARN**: `arn:aws:iam::<account-id>:role/CrowdStrikeAutomatedResponse`
    - **External ID**: (same value used during deployment)
 5. Click **Save configuration**
 
@@ -443,14 +443,14 @@ aws sts assume-role \
     --role-session-name validation
 
 # Then check role (using assumed credentials)
-aws iam get-role --role-name CrowdStrikeFusionSOARRole
+aws iam get-role --role-name CrowdStrikeAutomatedResponse
 ```
 
 ### From Target Account
 
 ```bash
-aws iam get-role --role-name CrowdStrikeFusionSOARRole
-aws iam list-role-policies --role-name CrowdStrikeFusionSOARRole
+aws iam get-role --role-name CrowdStrikeAutomatedResponse
+aws iam list-role-policies --role-name CrowdStrikeAutomatedResponse
 ```
 
 ### Test SOAR Workflow

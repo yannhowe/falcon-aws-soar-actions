@@ -8,8 +8,8 @@ Metadata:
           default: 'CrowdStrike Configuration'
         Parameters:
           - ExternalId
-          - IntermediateRoleArn
-          - SOARRoleName
+          - CrowdStrikeRoleArn
+          - AutomatedResponseRoleName
       - Label:
           default: 'SOAR Actions - Core Services (Enabled by Default)'
         Parameters:
@@ -62,10 +62,10 @@ Metadata:
     ParameterLabels:
       ExternalId:
         default: 'External ID'
-      IntermediateRoleArn:
-        default: 'CrowdStrike Intermediate Role ARN'
-      SOARRoleName:
-        default: 'SOAR IAM Role Name'
+      CrowdStrikeRoleArn:
+        default: 'CrowdStrike Role ARN'
+      AutomatedResponseRoleName:
+        default: 'Automated Response Role Name'
 
 Parameters:
   ExternalId:
@@ -74,15 +74,15 @@ Parameters:
     MinLength: 1
     NoEcho: true
 
-  IntermediateRoleArn:
+  CrowdStrikeRoleArn:
     Type: String
-    Description: 'CrowdStrike intermediate role ARN (from Falcon console setup instructions)'
+    Description: 'CrowdStrike Role ARN that will assume the automated response role (region-specific, see docs)'
     AllowedPattern: '^arn:aws[a-z-]*:iam::\d{12}:role/.+$'
 
-  SOARRoleName:
+  AutomatedResponseRoleName:
     Type: String
-    Description: 'Name of the IAM role for Falcon Fusion SOAR actions'
-    Default: 'CrowdStrikeFusionSOARRole'
+    Description: 'Name of the automated response role that will be created'
+    Default: 'CrowdStrikeAutomatedResponse'
     AllowedPattern: '^[a-zA-Z0-9+=,.@_-]{1,64}$'
 
   PermissionsBoundaryArn:
@@ -273,7 +273,7 @@ Resources:
   CrowdStrikeSOARRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Ref SOARRoleName
+      RoleName: !Ref AutomatedResponseRoleName
       Description: 'IAM role for CrowdStrike Falcon Fusion SOAR actions'
       MaxSessionDuration: 43200
       PermissionsBoundary: !If [HasPermissionsBoundary, !Ref PermissionsBoundaryArn, !Ref 'AWS::NoValue']
@@ -282,7 +282,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Ref IntermediateRoleArn
+              AWS: !Ref CrowdStrikeRoleArn
             Action: 'sts:AssumeRole'
             Condition:
               StringEquals:

@@ -5,7 +5,7 @@ PARAMS ?= cloudformation-stacksets/examples/parameters-basic.json
 ACCOUNTS ?=
 OUS ?=
 REGIONS ?= us-east-1
-ROLE_NAME ?= CrowdStrikeFusionSOARRole
+ROLE_NAME ?= CrowdStrikeAutomatedResponse
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -21,7 +21,7 @@ deploy-ou: ## Deploy to an OU (OUS=ou-xxxx-yyyy PARAMS=file)
 	@if [ -z "$(OUS)" ]; then echo "Usage: make deploy-ou OUS=ou-xxxx-yyyyyyyy"; exit 1; fi
 	cd cloudformation-stacksets/scripts && ./deploy-stackset.sh -m ou -p ../../$(PARAMS) -a "$(OUS)" -r "$(REGIONS)"
 
-test: ## Run deployment tests (ROLE_NAME=CrowdStrikeFusionSOARRole)
+test: ## Run deployment tests (ROLE_NAME=CrowdStrikeAutomatedResponse)
 	@./scripts/test-soar-deployment.sh $(ROLE_NAME)
 
 test-quick: ## Quick validation — role exists and has policies

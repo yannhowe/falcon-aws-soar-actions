@@ -4,12 +4,12 @@
     "ParameterValue": "your-external-id-from-crowdstrike"
   },
   {
-    "ParameterKey": "IntermediateRoleArn",
-    "ParameterValue": "arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/CrowdStrikeCSPMConnector"
+    "ParameterKey": "CrowdStrikeRoleArn",
+    "ParameterValue": "arn:aws:iam::YOUR_CS_ACCOUNT_ID:role/YOUR_REGION_SPECIFIC_ROLE_NAME"
   },
   {
-    "ParameterKey": "SOARRoleName",
-    "ParameterValue": "CrowdStrikeFusionSOARRole"
+    "ParameterKey": "AutomatedResponseRoleName",
+    "ParameterValue": "CrowdStrikeAutomatedResponse"
   },
   {
     "ParameterKey": "EnableEC2",

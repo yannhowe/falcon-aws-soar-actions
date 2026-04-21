@@ -78,22 +78,25 @@ fi
 echo
 
 # ─── Intermediate Role ARN ──────────────────────────────────────────
-echo -e "${BOLD}Step 3: CrowdStrike Intermediate Role ARN${NC}"
+echo -e "${BOLD}Step 3: CrowdStrike Role ARN${NC}"
 echo "  Find this in the same CrowdStrike setup instructions."
-echo "  Format: arn:aws:iam::<account-id>:role/CrowdStrikeCSPMConnector"
+echo "  This is region-specific:"
+echo "    US-1: arn:aws:iam::292230061137:role/beta-crowdstrike-plugin-assume-role"
+echo "    US-2: arn:aws:iam::292230061137:role/mav-crowdstrike-plugin-assume-role"
+echo "    EU-1: arn:aws:iam::292230061137:role/lion-crowdstrike-plugin-assume-role"
 echo
-read -rp "Intermediate Role ARN: " INTERMEDIATE_ROLE_ARN
+read -rp "CrowdStrike Role ARN: " CROWDSTRIKE_ROLE_ARN
 
-if [ -z "$INTERMEDIATE_ROLE_ARN" ]; then
-    log_error "Intermediate Role ARN is required"
+if [ -z "$CROWDSTRIKE_ROLE_ARN" ]; then
+    log_error "CrowdStrike Role ARN is required"
     exit 1
 fi
 echo
 
 # ─── Role name ──────────────────────────────────────────────────────
-echo -e "${BOLD}Step 4: SOAR Role Name${NC}"
-read -rp "Role name [CrowdStrikeFusionSOARRole]: " SOAR_ROLE_NAME
-SOAR_ROLE_NAME="${SOAR_ROLE_NAME:-CrowdStrikeFusionSOARRole}"
+echo -e "${BOLD}Step 4: Automated Response Role Name${NC}"
+read -rp "Role name [CrowdStrikeAutomatedResponse]: " ROLE_NAME
+ROLE_NAME="${ROLE_NAME:-CrowdStrikeAutomatedResponse}"
 echo
 
 # ─── Deployment mode ────────────────────────────────────────────────
@@ -140,12 +143,12 @@ cat > "$PARAMS_FILE" << EOF
     "ParameterValue": "$EXTERNAL_ID"
   },
   {
-    "ParameterKey": "IntermediateRoleArn",
-    "ParameterValue": "$INTERMEDIATE_ROLE_ARN"
+    "ParameterKey": "CrowdStrikeRoleArn",
+    "ParameterValue": "$CROWDSTRIKE_ROLE_ARN"
   },
   {
-    "ParameterKey": "SOARRoleName",
-    "ParameterValue": "$SOAR_ROLE_NAME"
+    "ParameterKey": "AutomatedResponseRoleName",
+    "ParameterValue": "$ROLE_NAME"
   },
   {
     "ParameterKey": "PermissionsBoundaryArn",
@@ -162,8 +165,8 @@ echo -e "${BOLD}Summary${NC}"
 echo "─────────────────────────────────────────────"
 echo "  Template:           $TEMPLATE_NAME"
 echo "  External ID:        ${EXTERNAL_ID:0:8}..."
-echo "  Intermediate Role:  $INTERMEDIATE_ROLE_ARN"
-echo "  SOAR Role Name:     $SOAR_ROLE_NAME"
+echo "  CrowdStrike Role:   $CROWDSTRIKE_ROLE_ARN"
+echo "  Role Name:          $ROLE_NAME"
 echo "  Region:             $REGIONS"
 if [ "$DEPLOY_MODE" == "1" ]; then
     echo "  Target accounts:    $TARGET_ACCOUNTS"

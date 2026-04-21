@@ -8,8 +8,8 @@ Metadata:
           default: 'CrowdStrike Configuration'
         Parameters:
           - ExternalId
-          - IntermediateRoleArn
-          - SOARRoleName
+          - CrowdStrikeRoleArn
+          - AutomatedResponseRoleName
           - PermissionsBoundaryArn
 
       - Label:
@@ -142,15 +142,15 @@ Parameters:
     MinLength: 1
     NoEcho: true
 
-  IntermediateRoleArn:
+  CrowdStrikeRoleArn:
     Type: String
-    Description: 'CrowdStrike intermediate role ARN (from Falcon console setup instructions)'
+    Description: 'CrowdStrike Role ARN that will assume the automated response role (region-specific, see docs)'
     AllowedPattern: '^arn:aws[a-z-]*:iam::\d{12}:role/.+$'
 
-  SOARRoleName:
+  AutomatedResponseRoleName:
     Type: String
-    Description: 'Name of the IAM role for SOAR actions'
-    Default: 'CrowdStrikeFusionSOARRole'
+    Description: 'Name of the automated response role that will be created'
+    Default: 'CrowdStrikeAutomatedResponse'
     AllowedPattern: '^[a-zA-Z0-9+=,.@_-]{1,64}$'
 
   PermissionsBoundaryArn:
@@ -711,7 +711,7 @@ Resources:
   CrowdStrikeSOARRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Ref SOARRoleName
+      RoleName: !Ref AutomatedResponseRoleName
       Description: 'IAM role for CrowdStrike SOAR actions with granular permissions'
       MaxSessionDuration: 43200
       PermissionsBoundary: !If [HasPermissionsBoundary, !Ref PermissionsBoundaryArn, !Ref 'AWS::NoValue']
@@ -720,7 +720,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Ref IntermediateRoleArn
+              AWS: !Ref CrowdStrikeRoleArn
             Action: 'sts:AssumeRole'
             Condition:
               StringEquals:
@@ -1935,7 +1935,7 @@ Outputs:
 
       Configuration Name:   ${AWS::AccountId}-soar
       AWS Account ID:       ${AWS::AccountId}
-      IAM Role Name:        ${SOARRoleName}
+      IAM Role Name:        ${AutomatedResponseRoleName}
       IAM Role ARN:         ${CrowdStrikeSOARRole.Arn}
       External ID:          [Use the value you provided during stack creation]
       AWS Region:           ${AWS::Region}
@@ -2005,7 +2005,7 @@ Outputs:
 
       5️⃣  Monitor Usage:
          Check AWS CloudTrail for role assumption events:
-         aws cloudtrail lookup-events --lookup-attributes AttributeKey=ResourceName,AttributeValue=${SOARRoleName}
+         aws cloudtrail lookup-events --lookup-attributes AttributeKey=ResourceName,AttributeValue=${AutomatedResponseRoleName}
 
       ───────────────────────────────────────────────────────────────────
 
@@ -2057,16 +2057,16 @@ Outputs:
     Value: !Sub |
       # Verify role assumptions from CrowdStrike:
       aws cloudtrail lookup-events \
-        --lookup-attributes AttributeKey=ResourceName,AttributeValue=${SOARRoleName} \
+        --lookup-attributes AttributeKey=ResourceName,AttributeValue=${AutomatedResponseRoleName} \
         --max-items 10 \
         --region ${AWS::Region}
 
       # Check IAM role details:
-      aws iam get-role --role-name ${SOARRoleName}
+      aws iam get-role --role-name ${AutomatedResponseRoleName}
 
       # List attached policies:
-      aws iam list-attached-role-policies --role-name ${SOARRoleName}
-      aws iam list-role-policies --role-name ${SOARRoleName}
+      aws iam list-attached-role-policies --role-name ${AutomatedResponseRoleName}
+      aws iam list-role-policies --role-name ${AutomatedResponseRoleName}
 
   # Support Information
   SupportInfo:

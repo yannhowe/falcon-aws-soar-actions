@@ -7,7 +7,7 @@
 set -e
 
 # Configuration
-ROLE_NAME="${1:-CrowdStrikeFusionSOARRole}"
+ROLE_NAME="${1:-CrowdStrikeAutomatedResponse}"
 ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
 
 # Colors

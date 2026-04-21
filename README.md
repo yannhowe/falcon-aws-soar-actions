@@ -15,16 +15,16 @@ CloudFormation templates for deploying CrowdStrike Falcon Fusion SOAR (Security 
            │ sts:AssumeRole
            ▼
 ┌──────────────────────┐
-│  Intermediate Role   │   CrowdStrike-managed account
-│  CrowdStrikeCSPM     │   (shared across all customers)
-│  Connector           │
+│  CrowdStrike Role    │   CrowdStrike-managed account
+│  (region-specific)   │   (shared across all customers)
+│                      │
 └──────────┬───────────┘
            │ sts:AssumeRole + ExternalId
            ▼
 ┌──────────────────────┐
-│  Your SOAR Role      │   Your AWS account(s)
-│  CrowdStrikeFusion   │   Deployed via StackSets
-│  SOARRole            │
+│  Your Role           │   Your AWS account(s)
+│  CrowdStrike         │   Deployed via StackSets
+│  AutomatedResponse   │
 └──────────┬───────────┘
            │ Per-action IAM policies
            ▼
@@ -55,15 +55,25 @@ Prompts for your External ID, account IDs, and region — generates config and d
 
 1. CrowdStrike Falcon subscription with Fusion SOAR capability
 2. External ID from CrowdStrike Falcon console (Store > AWS SOAR Actions > Configure)
-3. Intermediate Role ARN from CrowdStrike setup instructions
+3. CrowdStrike Role ARN from CrowdStrike setup instructions (region-specific, see table below)
 4. AWS account with CloudFormation StackSets enabled
+
+### CrowdStrike Role ARN by Region
+
+| Falcon Cloud | CrowdStrike Role ARN |
+|---|---|
+| **US-1** | `arn:aws:iam::292230061137:role/beta-crowdstrike-plugin-assume-role` |
+| **US-2** | `arn:aws:iam::292230061137:role/mav-crowdstrike-plugin-assume-role` |
+| **EU-1** | `arn:aws:iam::292230061137:role/lion-crowdstrike-plugin-assume-role` |
+| **GOV-1** | `arn:aws-us-gov:iam::358431324613:role/eagle-crowdstrike-plugin-assume-role` |
+| **GOV-2** | `arn:aws-us-gov:iam::142028973013:role/merlin-crowdstrike-plugin-assume-role` |
 
 ### Option 1: One-Click Deploy (AWS Console)
 
 Click the **Launch Stack** button at the top of this page, then fill in:
 - **ExternalId**: From CrowdStrike Store > AWS SOAR Actions > Configure
-- **IntermediateRoleArn**: From CrowdStrike setup instructions
-- **SOARRoleName**: `CrowdStrikeFusionSOARRole` (or custom)
+- **CrowdStrikeRoleArn**: Region-specific ARN (see table below)
+- **AutomatedResponseRoleName**: `CrowdStrikeAutomatedResponse` (or custom)
 
 ### Option 2: Deploy via Makefile
 
@@ -201,7 +211,7 @@ aws cloudtrail lookup-events \
 
 **Debug trust policy:**
 ```bash
-aws iam get-role --role-name CrowdStrikeFusionSOARRole \
+aws iam get-role --role-name CrowdStrikeAutomatedResponse \
   --query 'Role.AssumeRolePolicyDocument' --output json | jq .
 ```
 
@@ -210,7 +220,7 @@ aws iam get-role --role-name CrowdStrikeFusionSOARRole \
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `OUTDATED` status | Stack instance needs update | Run `make deploy-accounts` to update |
-| Role name conflict | Role already exists in target account | Delete existing role or use a different `SOARRoleName` |
+| Role name conflict | Role already exists in target account | Delete existing role or use a different `AutomatedResponseRoleName` |
 | Permissions boundary not found | Boundary policy doesn't exist in target account | Create the boundary policy first, or remove the `PermissionsBoundaryArn` parameter |
 | Service limit exceeded | Too many IAM roles (1000 max) | Clean up unused roles in the target account |
 | Trusted access not enabled | StackSets can't deploy to org | Run: `aws organizations enable-aws-service-access --service-principal member.org.stacksets.cloudformation.amazonaws.com` |
